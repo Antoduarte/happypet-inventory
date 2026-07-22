@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Ticket - HappyPet</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+        }
+
+        @page {
+            size: 3in 11in;
+            margin: 0;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.2;
+            margin: 0.04in;
+            padding: 0;
+            width: 2.99in;
+            word-wrap: break-word;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 0.12in;
+            border-bottom: 1px dashed #000;
+            padding-bottom: 0.12in;
+        }
+
+        .clinic-info {
+            font-size: 11px;
+            text-align: center;
+            margin-bottom: 0.08in;
+        }
+
+        .section-title {
+            font-weight: bold;
+            border-bottom: 1px solid #000;
+            margin: 0.08in 0;
+            font-size: 10px;
+        }
+
+        .row {
+            display: block;
+            margin-bottom: 0.06in;
+        }
+
+        .item {
+            display: block;
+            margin-bottom: 0.04in;
+        }
+
+        .item-name {
+            font-size: 11px;
+        }
+
+        .item-qty {
+            font-size: 11px;
+        }
+
+        .item-price {
+            font-size: 11px;
+        }
+
+        .adjustment {
+            display: block;
+            font-size: 11px;
+            color: #555;
+            margin-bottom: 0.04in;
+        }
+
+        .total-row {
+            display: block;
+            font-size: 14px;
+            font-weight: bold;
+            margin: 0.08in 0;
+        }
+
+        .footer {
+            text-align: center;
+            font-size: 11px;
+            margin-top: 0.12in;
+            border-top: 1px dashed #000;
+            padding: 0.12in;
+        }
+
+        .text-wrap {
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .no-break {
+            page-break-inside: avoid;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div style="font-size:14px;font-weight:bold;">CLÍNICA VETERINARIA HAPPYPET</div>
+        <div class="clinic-info">
+            Av. Principal 123 - Tel: 555-1234<br />
+            RUC: 12345678901
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="section-title">VENTA</div>
+        <div class="text-wrap">
+            <strong>Venta #</strong>{{ sale.id }}<br />
+            <strong>Fecha:</strong> {{ sale_date }}<br />
+            <strong>Método:</strong> {{ payment_type }}
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="section-title">PRODUCTOS / SERVICIOS</div>
+        {% for item in ticket_items %}
+        <div class="item text-wrap">
+            {{ item.name }}{% if item.quantity %} x{{ item.quantity }}{% endif %}
+            <span style="float:right;">C{{ item.total_price }}</span>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="row">
+        <div class="section-title"></div>
+        <div><strong>Subtotal:</strong> <span style="float:right;">C{{ sale.subtotal }}</span></div>
+        {% if sale.discount_percentage > 0 %}
+        <div>Descuento ({{ sale.discount_percentage }}%): <span style="float:right;">-C{{ discount_amount }}</span></div>
+        {% endif %}
+        {% if sale.surcharge_percentage > 0 %}
+        <div>Recargo ({{ sale.surcharge_percentage }}%): <span style="float:right;">+C{{ surcharge_amount }}</span></div>
+        {% if sale.surcharge_reason %}{{ sale.surcharge_reason }}{% endif %}
+        {% endif %}
+        <div style="border-top:1px solid #000;margin-top:0.06in;padding-top:0.06in;">
+            <strong>TOTAL:</strong> <span style="float:right;">C{{ sale.total_price }}</span>
+        </div>
+    </div>
+
+    <div class="footer no-break">
+        {{ footer_message }}
+    </div>
+</body>
+</html>

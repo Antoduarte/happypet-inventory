@@ -1,0 +1,17 @@
+node_modules
+dist
+build
+.turbo
+.nx
+.cache
+.vite
+coverage
+yarn.lock
+pnpm-lock.yaml
+package-lock.json
+public
+*.log
+*.tgz
+build
+coverage
+node_modules

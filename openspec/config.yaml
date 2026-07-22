@@ -1,0 +1,94 @@
+schema: spec-driven
+
+context: |
+  Tech stack: React 19 + TypeScript + Vite + Tailwind CSS 3 + PrimeReact 10 (frontend), Django 6 + DRF + PostgreSQL (backend)
+  Architecture: Django apps under happypet/ (users, products, services, sales, cash). JWT auth via simplejwt (60min/5day).
+  Build: Frontend outputs to backend/static/frontend_build/ (Vite). Frontend dev:5173, Backend API:8000.
+  Style: ESLint + Prettier (frontend). Prettier for formatting.
+
+strict_tdd: false
+
+rules:
+  proposal:
+    - Include rollback plan for risky changes
+    - Identify frontend and backend impact separately
+  specs:
+    - Use Given/When/Then for scenarios
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+    - Cover both API contracts and UI behavior
+  design:
+    - Include sequence diagrams for complex flows
+    - Document architecture decisions with rationale
+    - Note frontend/backend boundary changes
+  tasks:
+    - Group by phase, use hierarchical numbering
+    - Keep tasks completable in one session
+    - Separate frontend and backend tasks when possible
+  apply:
+    tdd: false
+    test_command: "cd backend && python manage.py test"
+    follow_existing_patterns: true
+  verify:
+    test_command: "cd backend && python manage.py test"
+    build_command: "cd frontend && npm run build"
+    coverage_threshold: 0
+  archive:
+    - Warn before merging destructive deltas
+    - Preserve empty changes as audit trail
+
+testing:
+  strict_tdd_mode: disabled
+  detected: "2026-06-01"
+
+  test_runner:
+    frontend:
+      command: "—"
+      framework: "None configured"
+    backend:
+      command: "cd backend && python manage.py test"
+      framework: "Django TestCase"
+
+  test_layers:
+    - layer: Unit
+      frontend_available: false
+      frontend_tool: "—"
+      backend_available: true
+      backend_tool: "Django TestCase"
+    - layer: Integration
+      frontend_available: false
+      frontend_tool: "—"
+      backend_available: false
+      backend_tool: "—"
+    - layer: E2E
+      frontend_available: false
+      frontend_tool: "—"
+      backend_available: false
+      backend_tool: "—"
+
+  coverage:
+    frontend_available: false
+    frontend_command: "—"
+    backend_available: false
+    backend_command: "—"
+
+  quality_tools:
+    - tool: Linter
+      frontend_available: true
+      frontend_command: "cd frontend && npm run lint"
+      backend_available: false
+      backend_command: "—"
+    - tool: Type checker
+      frontend_available: true
+      frontend_command: "cd frontend && npx tsc --noEmit"
+      backend_available: false
+      backend_command: "—"
+    - tool: Formatter
+      frontend_available: true
+      frontend_command: "cd frontend && npx prettier --write ."
+      backend_available: false
+      backend_command: "—"
+
+  limitations:
+    - "Frontend: No test framework (no vitest/jest). Backend only."
+    - "No coverage tools configured for either tier."
+    - "Integration and E2E layers unavailable."

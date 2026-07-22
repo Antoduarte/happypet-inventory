@@ -1,0 +1,11 @@
+.atl/*
+.agent/*
+.claude/*
+
+node_modules/
+.venv/
+.env
+staticfiles/
+__pycache__/
+*.py[cod]
+*.egg-info
