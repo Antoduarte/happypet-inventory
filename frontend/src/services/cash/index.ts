@@ -20,7 +20,7 @@ const MOVEMENTS_URL = '/cash-movements/';
 class CashRegisterService {
     async getRegisters(params?: CashRegisterQueryParams): Promise<CashRegister[]> {
         try {
-            const response = await api.get<CashRegister[]>(REGISTERS_URL, { params });
+            const response = await api.get<CashRegister[] | { results: CashRegister[] }>(REGISTERS_URL, { params });
             return Array.isArray(response) ? response : (response.results ?? []);
         } catch (error) {
             throw AppError.from(error);
@@ -112,7 +112,7 @@ class CashMovementService {
     async getMovements(cashSessionId?: number): Promise<CashMovement[]> {
         try {
             const params = cashSessionId ? { cash_session: cashSessionId } : undefined;
-            const response = await api.get<CashMovement[]>(MOVEMENTS_URL, { params });
+            const response = await api.get<CashMovement[] | { results: CashMovement[] }>(MOVEMENTS_URL, { params });
             return Array.isArray(response) ? response : (response.results ?? []);
         } catch (error) {
             throw AppError.from(error);

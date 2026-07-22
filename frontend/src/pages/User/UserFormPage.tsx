@@ -178,10 +178,10 @@ export const UserFormPage: React.FC = () => {
     const handleConfirmDelete = async () => {
         if (!id) return;
         setIsDeleting(true);
-        const success = await deleteUser(id);
+        await deleteUser(id);
         setIsDeleting(false);
         setShowConfirmDelete(false);
-        if (success) goToUsers();
+        goToUsers();
     };
 
     const sidebarActions = useMemo(

@@ -10,6 +10,7 @@ interface SelectProps {
     isLoading?: boolean;
     noOptionsText?: string;
     className?: string;
+    required?: boolean;
 }
 
 export const Select: React.FC<SelectProps> = ({

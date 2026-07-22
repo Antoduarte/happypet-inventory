@@ -85,7 +85,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 code: initialData.code ?? '',
                 categoryId: initialData.category?.id ?? null,
                 price: parseFloat(initialData.price),
-                stock: initialData.stock,
+                stock: parseFloat(initialData.stock),
             });
         } else {
             reset({

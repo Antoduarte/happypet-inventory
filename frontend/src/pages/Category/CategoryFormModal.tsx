@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
-import type { Category } from './useCategories';
+import type { Category } from '../../interfaces/category';
 
 const categorySchema = z.object({
     name: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),
@@ -48,8 +48,8 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
             if (initialData) {
                 reset({
                     name: initialData.name,
-                    description: initialData.description,
-                    status: initialData.status,
+                    description: initialData.description ?? '',
+                    status: initialData.is_active ? 'active' : 'inactive',
                 });
             } else {
                 reset({ name: '', description: '', status: 'active' });

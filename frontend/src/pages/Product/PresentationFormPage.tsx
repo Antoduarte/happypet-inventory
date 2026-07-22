@@ -84,7 +84,7 @@ export const PresentationFormPage: React.FC = () => {
         reset,
         formState: { errors, isSubmitting },
     } = useForm<PresentationFormData>({
-        resolver: zodResolver(presentationSchema),
+        resolver: zodResolver(presentationSchema) as any,
         defaultValues: {
             name: '',
             multiplier: 1,
