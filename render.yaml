@@ -2,7 +2,7 @@ services:
   - type: web
     name: happypet-inventory
     runtime: python
-    repo: https://github.com/tuusuario/happypet-inventory
+    repo: https://github.com/Antoduarte/happypet-inventory
     plan: free
     region: oregon
     buildCommand: ./build.sh
