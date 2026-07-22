@@ -1,5 +1,5 @@
 import { BrowserRouter } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from 'react-query';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AppRoutes } from './routes/Routes';
 import { AuthProvider } from './context/AuthProvider';
 import { ToastProvider } from './context/ToastProvider';

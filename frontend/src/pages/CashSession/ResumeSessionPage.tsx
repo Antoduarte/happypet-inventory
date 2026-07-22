@@ -21,7 +21,7 @@ export const ResumeSessionPage: React.FC = () => {
         isLoading: isSessionLoading,
         error,
     } = useSessionDetail(numericSessionId);
-    const { mutate: resumeSession, isLoading: isResumeLoading } = useResumeSession();
+    const { mutate: resumeSession, isPending: isResumeLoading } = useResumeSession();
 
     const handleResume = () => {
         if (!numericSessionId) return;

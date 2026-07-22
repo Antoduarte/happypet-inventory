@@ -31,7 +31,7 @@ export const CashMovementModal: React.FC<CashMovementModalProps> = ({
 }) => {
     const [selectedType, setSelectedType] = useState<MovementType>('income');
 
-    const { mutate: createMovement, isLoading } = useCreateCashMovement();
+    const { mutate: createMovement, isPending: isLoading } = useCreateCashMovement();
 
     const {
         register,

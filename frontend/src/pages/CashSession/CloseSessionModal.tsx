@@ -28,7 +28,7 @@ export const CloseSessionModal: React.FC<CloseSessionModalProps> = ({
     onSuccess,
     isOpen,
 }) => {
-    const { mutate: closeSession, isLoading } = useCloseSession();
+    const { mutate: closeSession, isPending: isLoading } = useCloseSession();
 
     const openingAmount = parseFloat(session.opening_amount || '0');
     const expectedAmount = parseFloat(session.expected_amount || '0');
