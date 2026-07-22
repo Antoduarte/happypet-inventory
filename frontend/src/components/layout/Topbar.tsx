@@ -1,7 +1,5 @@
 import React, { useRef, useState } from 'react';
 import {
-    Bell,
-    Search,
     User,
     ChevronDown,
     UserCircle,
@@ -89,6 +87,7 @@ export const Topbar: React.FC = () => {
             />
             <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 sticky top-0 z-10">
                 <div className="flex items-center flex-1">
+                    {/* Search bar commented out
                     <div className="relative w-full max-w-md hidden md:block">
                         <input
                             type="text"
@@ -97,13 +96,11 @@ export const Topbar: React.FC = () => {
                         />
                         <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
                     </div>
+                    */}
                 </div>
 
                 <div className="flex items-center gap-4">
-                    <button className="relative p-2 text-slate-500 hover:text-slate-700 transition-colors rounded-full hover:bg-slate-100">
-                        <Bell size={iconSize} />
-                        <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
-                    </button>
+                    {/* Notifications removed */}
 
                     <div className="h-8 w-px bg-slate-200 mx-2"></div>
 
