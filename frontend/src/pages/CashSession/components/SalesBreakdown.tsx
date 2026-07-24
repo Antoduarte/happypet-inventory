@@ -31,7 +31,9 @@ export const SalesBreakdown: React.FC<SalesBreakdownProps> = ({ sales }) => {
                             key={type}
                             className="flex flex-col items-center p-3 bg-slate-50 rounded-xl"
                         >
-                            <Icon size={20} className="text-slate-500 mb-1" />
+                            <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-brand/10 text-brand">
+                                <Icon size={22} />
+                            </div>
                             <p className="text-lg font-bold text-slate-800">C${total.toFixed(2)}</p>
                             <p className="text-xs text-slate-400">
                                 {count} venta{count !== 1 ? 's' : ''}

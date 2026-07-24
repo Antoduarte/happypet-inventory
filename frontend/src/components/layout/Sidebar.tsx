@@ -52,22 +52,22 @@ export const Sidebar: React.FC = () => {
 
     return (
         <aside
-            className={`bg-white text-white transition-all duration-300 flex flex-col h-screen sticky top-0
+            className={`bg-white text-slate-600 transition-all duration-300 flex flex-col h-screen sticky top-0
         ${isCollapsed ? 'w-20' : 'w-64'}
       `}
         >
-            <div className="h-16 flex items-center justify-between px-4 border-b border-gray-300">
+            <div className="h-16 flex items-center justify-between px-4 border-b border-slate-200">
                 {!isCollapsed && (
                     <div className="flex items-center gap-2">
                         <img src={petLogo} alt="HappyPet" className="h-12 w-auto" />
-                        <span style={{ color: '#680a7c' }} className="text-xl font-bold">
+                        <span className="text-brand text-xl font-bold">
                             HappyPet
                         </span>
                     </div>
                 )}
                 <button
                     onClick={() => setIsCollapsed(!isCollapsed)}
-                    className={`p-1.5 rounded-lg hover:bg-slate-800 transition-colors text-slate-400 hover:text-white ${isCollapsed ? 'mx-auto' : ''}`}
+                    className={`p-1.5 rounded-lg hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-700 ${isCollapsed ? 'mx-auto' : ''}`}
                 >
                     {isCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
                 </button>
@@ -89,7 +89,7 @@ export const Sidebar: React.FC = () => {
                 ${
                     isActive
                         ? 'bg-brand/10 text-brand-light'
-                        : 'text-slate-500 hover:bg-slate-800/50 hover:text-slate-200'
+                        : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
                 }
                 ${isCollapsed ? 'justify-center' : ''}
               `}
@@ -97,7 +97,7 @@ export const Sidebar: React.FC = () => {
                         >
                             <Icon
                                 size={22}
-                                className={`transition-colors duration-200 ${isActive ? 'text-brand-light' : 'group-hover:text-slate-300'}`}
+                                className={`transition-colors duration-200 ${isActive ? 'text-brand-light' : 'group-hover:text-slate-700'}`}
                             />
                             {!isCollapsed && (
                                 <span className={`font-medium ${isActive ? 'font-semibold' : ''}`}>

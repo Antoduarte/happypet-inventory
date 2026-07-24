@@ -1,13 +1,5 @@
 import React, { useMemo } from 'react';
-import {
-    Bar,
-    BarChart,
-    CartesianGrid,
-    ResponsiveContainer,
-    Tooltip,
-    XAxis,
-    YAxis,
-} from 'recharts';
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { ReportGranularity, ReportPeriodPoint } from '../../../interfaces/report';
 import { formatCurrency } from '../../../utils/format';
 
@@ -85,8 +77,8 @@ export const SalesTrendChart: React.FC<SalesTrendChartProps> = ({ data, granular
                         width={70}
                         tickFormatter={(v: number) => `C$ ${v.toLocaleString('es-NI')}`}
                     />
-                    <Tooltip content={<ChartTooltip />} cursor={{ fill: '#2E236C0d' }} />
-                    <Bar dataKey="total" fill="#2E236C" radius={[6, 6, 0, 0]} maxBarSize={64} />
+                    <Tooltip content={<ChartTooltip />} cursor={{ fill: '#680a7d0d' }} />
+                    <Bar dataKey="total" fill="#680a7d" radius={[6, 6, 0, 0]} maxBarSize={64} />
                 </BarChart>
             </ResponsiveContainer>
         </div>

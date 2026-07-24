@@ -23,7 +23,9 @@ export const PaymentBreakdown: React.FC<PaymentBreakdownProps> = ({ data }) => {
                         key={row.type}
                         className="flex flex-col items-center text-center p-4 bg-slate-50 rounded-xl"
                     >
-                        <Icon size={22} className="text-slate-500 mb-2" />
+                        <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-xl bg-brand/10 text-brand">
+                            <Icon size={24} />
+                        </div>
                         <p className="text-base font-bold text-slate-800">
                             {formatCurrency(row.total)}
                         </p>

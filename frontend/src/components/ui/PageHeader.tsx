@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Home } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 interface PageHeaderProps {
@@ -18,17 +18,21 @@ export const PageHeader: React.FC<PageHeaderProps> = ({ title, breadcrumbs, acti
                         {breadcrumbs.map((crumb, index) => (
                             <React.Fragment key={index}>
                                 {index > 0 && (
-                                    <ChevronRight size={14} className="mx-2 text-slate-400" />
+                                    <ChevronRight size={14} className="mx-1.5 text-slate-500" />
                                 )}
                                 {crumb.path ? (
                                     <Link
                                         to={crumb.path}
-                                        className="hover:text-brand-light transition-colors"
+                                        className="flex items-center gap-1 text-slate-500 hover:text-brand transition-colors"
                                     >
+                                        {index === 0 && <Home size={14} />}
                                         {crumb.label}
                                     </Link>
                                 ) : (
-                                    <span className="text-slate-700">{crumb.label}</span>
+                                    <span className="flex items-center gap-1 bg-brand/10 text-brand px-2.5 py-1 rounded-lg font-semibold">
+                                        {index === 0 && <Home size={14} />}
+                                        {crumb.label}
+                                    </span>
                                 )}
                             </React.Fragment>
                         ))}

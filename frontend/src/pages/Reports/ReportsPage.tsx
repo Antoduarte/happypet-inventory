@@ -222,7 +222,7 @@ export const ReportsPage: React.FC = () => {
                     </Card>
 
                     {/* Payment breakdown */}
-                    <Card title="Desglose por Método de Pago">
+                    <Card title="Métodos de Pago">
                         {isLoading || !report ? (
                             <div className="h-24 animate-pulse bg-slate-100 rounded-xl" />
                         ) : (

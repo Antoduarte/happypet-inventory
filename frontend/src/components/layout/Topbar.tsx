@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { User, ChevronDown, LogOut, ChevronUp } from 'lucide-react';
+import { ChevronDown, LogOut, ChevronUp } from 'lucide-react';
 import { Menu } from 'primereact/menu';
 import type { MenuItem as MenuPrimeItem } from 'primereact/menuitem';
 import { useAuth } from '../../hooks/useAuth';
@@ -13,6 +13,14 @@ export const Topbar: React.FC = () => {
     const navigate = useNavigate();
 
     const displayName = user?.name || user?.email || 'Usuario';
+    const initials =
+        displayName
+            .split(' ')
+            .filter(Boolean)
+            .slice(0, 2)
+            .map((word) => word[0])
+            .join('')
+            .toUpperCase() || 'U';
 
     const roleLabels: Record<string, string> = {
         admin: 'Administrador',
@@ -63,23 +71,21 @@ export const Topbar: React.FC = () => {
                 }}
             />
             <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 sticky top-0 z-10">
-                <div className="flex items-center flex-1"></div>
+                <div className="flex flex-col flex-1 justify-center"></div>
 
                 <div className="flex items-center gap-4">
-                    <div className="h-8 w-px bg-slate-200 mx-2"></div>
-
                     <button
                         id="user-menu-btn"
                         onClick={handleToggleMenu}
-                        className="flex items-center gap-2 hover:bg-slate-50 p-1.5 rounded-lg transition-colors"
+                        className="flex items-center gap-2 p-1.5 pr-2 rounded-xl border border-slate-200 hover:border-brand/40 hover:bg-brand/5 transition-colors focus:outline-none focus:ring-2 focus:ring-brand/30"
                         aria-haspopup
                         aria-controls="user-menu"
                     >
-                        <div className="w-8 h-8 rounded-full bg-brand/10 text-brand flex items-center justify-center">
-                            <User size={iconSize} />
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand to-brand-light text-white font-semibold text-sm flex items-center justify-center">
+                            {initials}
                         </div>
                         <div className="hidden md:block text-left">
-                            <p className="text-sm font-medium text-slate-700 leading-tight">
+                            <p className="text-sm font-medium text-slate-800 leading-tight">
                                 {displayName}
                             </p>
                             <p className="text-xs text-slate-500">{displayRole}</p>

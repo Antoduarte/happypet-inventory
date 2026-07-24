@@ -1,52 +1,30 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Package, TrendingUp, AlertTriangle, Users } from 'lucide-react';
+import { Package, TrendingUp, AlertTriangle, Scissors } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { useDashboard } from '../../hooks/useDashboard';
+import { useReports } from '../../hooks/useReports';
 import { useAuth } from '../../hooks/useAuth';
+import { formatCurrency } from '../../utils/format';
+import { SalesTrendChart } from '../Reports/components/SalesTrendChart';
+import { KpiCard } from './components/KpiCard';
+import { PaymentMethodsList } from './components/PaymentMethodsList';
+import { RecentSalesCard } from './components/RecentSalesCard';
+import { CashStatusCard } from './components/CashStatusCard';
 
-const StatCard: React.FC<{
-    title: string;
-    value: string;
-    icon: React.ElementType;
-    trend?: string;
-    trendUp?: boolean;
-    isLoading?: boolean;
-}> = ({ title, value, icon: Icon, trend, trendUp, isLoading }) => (
-    <Card className="flex flex-col">
-        <div className="flex justify-between items-start mb-4">
-            <div className="p-3 bg-brand/10 text-brand rounded-xl">
-                <Icon size={24} />
-            </div>
-            {trend && (
-                <div
-                    className={`px-2.5 py-1 rounded-full text-xs font-semibold ${trendUp ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}
-                >
-                    {trendUp ? '+' : ''}
-                    {trend}
-                </div>
-            )}
-        </div>
-        <div className="mt-auto">
-            <h3 className="text-slate-500 font-medium text-sm">{title}</h3>
-            {isLoading ? (
-                <div className="h-8 w-20 bg-slate-200 rounded animate-pulse mt-1" />
-            ) : (
-                <p className="text-2xl font-bold text-slate-800 mt-1">{value}</p>
-            )}
-        </div>
-    </Card>
-);
-
-const formatCurrency = (value: string | number): string => {
-    const num = typeof value === 'string' ? parseFloat(value) : value;
-    return `C$ ${num.toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+/** Builds a YYYY-MM-DD string from local date parts (avoids UTC shift). */
+const toISODate = (date: Date): string => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
 };
 
 export const Dashboard: React.FC = () => {
     const navigate = useNavigate();
     const { stats, isLoading, fetchStats } = useDashboard();
+    const { report, isLoading: reportLoading, fetchReport } = useReports();
     const { user } = useAuth();
 
     const isAdminOrManager = user?.role === 'admin' || user?.role === 'manager';
@@ -55,6 +33,21 @@ export const Dashboard: React.FC = () => {
     useEffect(() => {
         fetchStats();
     }, [fetchStats]);
+
+    const range = useMemo(() => {
+        const end = new Date();
+        const start = new Date();
+        start.setDate(end.getDate() - 6);
+        return { start: toISODate(start), end: toISODate(end) };
+    }, []);
+
+    useEffect(() => {
+        if (isAdminOrManager) {
+            fetchReport({ start: range.start, end: range.end, granularity: 'day' });
+        }
+    }, [isAdminOrManager, range, fetchReport]);
+
+    const lowStock = stats?.low_stock_count ?? 0;
 
     const quickActions = [
         {
@@ -85,85 +78,106 @@ export const Dashboard: React.FC = () => {
     ].filter((action) => action.show);
 
     return (
-        <div>
+        <div className="flex flex-col gap-6">
             <PageHeader title="Resumen" breadcrumbs={[{ label: 'Panel' }]} />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-                <StatCard
-                    title="Total de Productos"
-                    value={stats?.total_products?.toLocaleString('es-NI') ?? '0'}
-                    icon={Package}
-                    trendUp={true}
-                    isLoading={isLoading}
-                />
-                <StatCard
-                    title="Ingresos de Hoy"
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+                <KpiCard
+                    title="Ingresos de hoy"
                     value={stats ? formatCurrency(stats.today_income) : 'C$ 0.00'}
                     icon={TrendingUp}
-                    trendUp={true}
+                    accent="brand"
+                    subtitle="Al día de hoy"
                     isLoading={isLoading}
                 />
-                <StatCard
-                    title="Alertas de Bajo Stock"
-                    value={`${stats?.low_stock_count ?? 0} artículos`}
-                    icon={AlertTriangle}
-                    trendUp={false}
+                <KpiCard
+                    title="Productos"
+                    value={stats?.total_products?.toLocaleString('es-NI') ?? '0'}
+                    icon={Package}
+                    accent="slate"
+                    subtitle="Ver productos →"
+                    to="/products"
                     isLoading={isLoading}
                 />
-                <StatCard
-                    title="Servicios Realizados"
+                <KpiCard
+                    title="Servicios de hoy"
                     value={stats?.today_services?.toLocaleString('es-NI') ?? '0'}
-                    icon={Users}
-                    trendUp={true}
+                    icon={Scissors}
+                    accent="emerald"
+                    subtitle="Realizados hoy"
                     isLoading={isLoading}
+                />
+                <KpiCard
+                    title="Stock bajo"
+                    value={`${lowStock} ${lowStock === 1 ? 'artículo' : 'artículos'}`}
+                    icon={AlertTriangle}
+                    accent="amber"
+                    subtitle="Revisar en Productos →"
+                    to="/products"
+                    isLoading={isLoading}
+                    highlight={lowStock > 0}
                 />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <Card title="Actividad Reciente" className="lg:col-span-2">
-                    <div className="space-y-4">
-                        {[1, 2, 3, 4, 5].map((i) => (
-                            <div
-                                key={i}
-                                className="flex items-center justify-between p-3 hover:bg-slate-50 rounded-lg transition-colors border border-transparent hover:border-slate-100"
-                            >
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-full bg-brand/10 flex items-center justify-center text-brand font-bold text-sm">
-                                        USR
-                                    </div>
-                                    <div>
-                                        <p className="text-sm font-medium text-slate-800">
-                                            Nueva Venta Registrada
-                                        </p>
-                                        <p className="text-xs text-slate-500">
-                                            Pedido #ORD-500{i} • Por Usuario Administrador
-                                        </p>
-                                    </div>
-                                </div>
-                                <div className="text-sm font-semibold text-slate-700">C$249.00</div>
-                            </div>
-                        ))}
-                    </div>
-                </Card>
+            {isAdminOrManager && (
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                    <Card
+                        title="Ventas — últimos 7 días"
+                        className="lg:col-span-2"
+                        action={
+                            report && !reportLoading ? (
+                                <span className="text-xs font-normal text-slate-400">
+                                    Total {formatCurrency(report.summary.total_income)}
+                                </span>
+                            ) : undefined
+                        }
+                    >
+                        {reportLoading ? (
+                            <div className="h-72 animate-pulse rounded-lg bg-slate-100" />
+                        ) : (
+                            <SalesTrendChart data={report?.by_period ?? []} granularity="day" />
+                        )}
+                    </Card>
 
-                <Card title="Acciones Rápidas">
-                    <div className="flex flex-col gap-3">
-                        {quickActions.map((action, index) => (
-                            <button
-                                key={index}
-                                onClick={action.onClick}
-                                className="w-full text-left px-4 py-3 bg-slate-50 hover:bg-slate-100 rounded-lg text-sm font-medium text-slate-700 transition-colors border border-slate-200"
-                            >
-                                {action.label}
-                            </button>
-                        ))}
-                        {!user?.hasCashSession && (
-                            <p className="text-xs text-amber-600 mt-1 px-1">
-                                Abre una caja para registrar ventas
+                    <Card title="Métodos de pago">
+                        {reportLoading ? (
+                            <div className="h-40 animate-pulse rounded-lg bg-slate-100" />
+                        ) : report && report.by_payment.length > 0 ? (
+                            <PaymentMethodsList data={report.by_payment} />
+                        ) : (
+                            <p className="py-8 text-center text-sm text-slate-400">
+                                Sin datos de pago en el período.
                             </p>
                         )}
-                    </div>
-                </Card>
+                    </Card>
+                </div>
+            )}
+
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                <RecentSalesCard />
+
+                <div className="flex flex-col gap-6">
+                    <CashStatusCard />
+
+                    <Card title="Acciones Rápidas">
+                        <div className="flex flex-col gap-3">
+                            {quickActions.map((action, index) => (
+                                <button
+                                    key={index}
+                                    onClick={action.onClick}
+                                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-left text-sm font-medium text-slate-700 transition-colors hover:border-brand-muted hover:bg-brand/5 hover:text-brand"
+                                >
+                                    {action.label}
+                                </button>
+                            ))}
+                            {!user?.hasCashSession && (
+                                <p className="mt-1 px-1 text-xs text-amber-600">
+                                    Abre una caja para registrar ventas
+                                </p>
+                            )}
+                        </div>
+                    </Card>
+                </div>
             </div>
         </div>
     );
