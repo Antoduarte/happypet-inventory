@@ -5,6 +5,7 @@ from django.db import transaction
 from django.utils import timezone
 from django.db import models
 
+from happypet.products.constants import SAILE_STATUS_CANCELLED
 from .constants import PAYMENT_CASH
 from .models import CashRegister, CashSession, CashMovement, CashSessionClosure
 
@@ -145,20 +146,23 @@ class CashSessionService:
     def _calculate_expected_amount(session: CashSession) -> Decimal:
         total = session.opening_amount
 
-        cash_sales = session.sales.filter(payment_type=PAYMENT_CASH).aggregate(
-            total=models.Sum("total_price")
-        )["total"] or Decimal("0.00")
+        cash_sales = (
+            session.sales.filter(payment_type=PAYMENT_CASH)
+            .exclude(status=SAILE_STATUS_CANCELLED)
+            .aggregate(total=models.Sum("total_price"))["total"]
+            or Decimal("0.00")
+        )
         total += cash_sales
 
         income = session.movements.filter(type=CashMovement.TYPE_INCOME).exclude(
-            reason__startswith="Sale #"
+            reason__startswith="Venta #"
         ).aggregate(
             total=models.Sum("amount")
         )["total"] or Decimal("0.00")
         total += income
 
         expense = session.movements.filter(type=CashMovement.TYPE_EXPENSE).exclude(
-            reason__startswith="Sale #"
+            reason__startswith="Venta #"
         ).aggregate(
             total=models.Sum("amount")
         )["total"] or Decimal("0.00")

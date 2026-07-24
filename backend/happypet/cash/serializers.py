@@ -7,6 +7,7 @@ from rest_framework import serializers
 
 from .constants import PAYMENT_METHOD_CHOICES
 from .models import CashRegister, CashSession, CashMovement, CashSessionClosure
+from happypet.products.constants import SAILE_STATUS_CANCELLED
 from happypet.sales.models import Sale
 
 
@@ -212,16 +213,21 @@ class CashSessionReportSerializer(serializers.ModelSerializer):
         ]
 
     def get_sales_count(self, obj):
-        return obj.sales.count()
+        return obj.sales.exclude(status=SAILE_STATUS_CANCELLED).count()
 
     def get_sales_total(self, obj):
-        return obj.sales.aggregate(total=models.Sum("total_price"))["total"] or Decimal("0.00")
+        return (
+            obj.sales.exclude(status=SAILE_STATUS_CANCELLED).aggregate(
+                total=models.Sum("total_price")
+            )["total"]
+            or Decimal("0.00")
+        )
 
     def _get_sales_by_payment(self, obj, payment_type):
         return (
-            obj.sales.filter(payment_type=payment_type).aggregate(
-                total=models.Sum("total_price")
-            )["total"]
+            obj.sales.filter(payment_type=payment_type)
+            .exclude(status=SAILE_STATUS_CANCELLED)
+            .aggregate(total=models.Sum("total_price"))["total"]
             or Decimal("0.00")
         )
 

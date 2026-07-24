@@ -93,7 +93,7 @@ export const useSale = () => {
                 errorStatusCode: null,
             });
         } catch (err) {
-            handleError(err, 'Error loading sales.');
+            handleError(err, 'Error al cargar las ventas.');
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -120,7 +120,7 @@ export const useSale = () => {
             }));
             return sale;
         } catch (err) {
-            handleError(err, 'Error loading the sale.');
+            handleError(err, 'Error al cargar la venta.');
             return null;
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -155,10 +155,10 @@ export const useSale = () => {
                 isLoading: false,
                 error: null,
             }));
-            showToast('Sale created successfully.', 'success');
+            showToast('Venta creada exitosamente.', 'success');
             return created;
         } catch (err) {
-            handleError(err, 'Error creating the sale.');
+            handleError(err, 'Error al crear la venta.');
             return null;
         }
     };
@@ -183,10 +183,10 @@ export const useSale = () => {
                 isLoading: false,
                 error: null,
             }));
-            showToast('Sale updated successfully.', 'success');
+            showToast('Venta actualizada correctamente.', 'success');
             return updated;
         } catch (err) {
-            handleError(err, 'Error updating the sale.');
+            handleError(err, 'Error al actualizar la venta.');
             return null;
         }
     };
@@ -214,10 +214,10 @@ export const useSale = () => {
                 isLoading: false,
                 error: null,
             }));
-            showToast('Sale status updated successfully.', 'success');
+            showToast('Estado de la venta actualizado correctamente.', 'success');
             return updated;
         } catch (err) {
-            handleError(err, 'Error updating sale status.');
+            handleError(err, 'Error al actualizar el estado de la venta.');
             return null;
         }
     };
@@ -242,10 +242,10 @@ export const useSale = () => {
                 isLoading: false,
                 error: null,
             }));
-            showToast('Sale deleted successfully.', 'success');
+            showToast('Venta eliminada correctamente.', 'success');
             return true;
         } catch (err) {
-            handleError(err, 'Error deleting the sale.');
+            handleError(err, 'Error al eliminar la venta.');
             return false;
         }
     };

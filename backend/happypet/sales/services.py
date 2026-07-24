@@ -293,7 +293,7 @@ class SaleStatusService:
             cash_session=sale.cash_session,
             type=CashMovement.TYPE_INCOME,
             amount=sale.total_price,
-            reason=f"Sale #{sale.pk} completed",
+            reason=f"Venta #{sale.pk} completada",
             created_by=user,
         )
 
@@ -304,9 +304,19 @@ class SaleStatusService:
         items = list(
             sale.items.select_related("product", "presentation").all()
         )
-        for item in items:
-            if item.type == SALE_ITEM_PRODUCT:
-                self._revert_stock_for_item(item)
+        product_items = [item for item in items if item.type == SALE_ITEM_PRODUCT]
+
+        # Agrupar las reversas en un lote de entrada visible (igual que la salida
+        # al vender), para que aparezcan en la pantalla de Movimientos.
+        revert_batch = None
+        if product_items:
+            revert_batch = MovementBatch.objects.create(
+                movement_type=MOVEMENT_IN,
+                notes=f"Reversión venta cancelada #{sale.pk}",
+            )
+
+        for item in product_items:
+            self._revert_stock_for_item(item, revert_batch)
 
         # Registra egreso si fue en efectivo y está asociada a una sesión de caja
         if sale.payment_type == PAYMENT_CASH and sale.cash_session:
@@ -318,11 +328,11 @@ class SaleStatusService:
                 cash_session=sale.cash_session,
                 type=CashMovement.TYPE_EXPENSE,
                 amount=sale.total_price,
-                reason=f"Sale #{sale.pk} cancelled",
+                reason=f"Venta #{sale.pk} cancelada",
                 created_by=user,
             )
 
-    def _revert_stock_for_item(self, item) -> None:
+    def _revert_stock_for_item(self, item, batch=None) -> None:
         """Bloquea el producto, restaura stock usando snapshot_multiplier y audita."""
         from happypet.products.models import Product as ProductModel
 
@@ -344,13 +354,14 @@ class SaleStatusService:
             new_stock = previous_stock + base_units
 
             InventoryMovement.objects.create(
+                batch=batch,
                 product=product,
                 presentation=item.presentation,
                 movement_type=MOVEMENT_IN,
                 quantity=base_units,
                 previous_stock=previous_stock,
                 new_stock=new_stock,
-                notes=f"Revert from cancelled sale #{item.sale.pk}",
+                notes=f"Reversión de venta cancelada #{item.sale.pk}",
             )
 
             ProductModel.objects.filter(pk=product.pk).update(stock=new_stock)

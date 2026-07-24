@@ -20,6 +20,9 @@ export const useCurrentSession = (cashRegisterId: number | null) => {
         queryFn: () => cashSessionService.getCurrentSession(cashRegisterId!),
         enabled: !!cashRegisterId,
         refetchInterval: 30000,
+        staleTime: 0,
+        refetchOnMount: 'always',
+        refetchOnWindowFocus: true,
     });
 };
 
@@ -28,6 +31,9 @@ export const useSessionDetail = (sessionId: number | null) => {
         queryKey: ['cash-session', 'detail', sessionId],
         queryFn: () => cashSessionService.getSessionById(sessionId!),
         enabled: !!sessionId,
+        staleTime: 0,
+        refetchOnMount: 'always',
+        refetchOnWindowFocus: true,
     });
 };
 
@@ -36,6 +42,9 @@ export const useSessionReport = (sessionId: number | null) => {
         queryKey: ['cash-session', 'report', sessionId],
         queryFn: () => cashSessionService.getSessionReport(sessionId!),
         enabled: !!sessionId,
+        staleTime: 0,
+        refetchOnMount: 'always',
+        refetchOnWindowFocus: true,
     });
 };
 
@@ -85,6 +94,9 @@ export const useCashMovements = (cashSessionId?: number) => {
     return useQuery({
         queryKey: ['cash-movements', cashSessionId],
         queryFn: () => cashMovementService.getMovements(cashSessionId),
+        staleTime: 0,
+        refetchOnMount: 'always',
+        refetchOnWindowFocus: true,
     });
 };
 
@@ -103,5 +115,8 @@ export const useActiveSession = () => {
     return useQuery({
         queryKey: ['cash-session', 'active'],
         queryFn: () => cashSessionService.getActiveSession(),
+        staleTime: 0,
+        refetchOnMount: 'always',
+        refetchOnWindowFocus: true,
     });
 };

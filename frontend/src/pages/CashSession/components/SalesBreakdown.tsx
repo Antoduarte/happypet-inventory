@@ -19,7 +19,9 @@ export const SalesBreakdown: React.FC<SalesBreakdownProps> = ({ sales }) => {
             <p className="text-sm font-semibold text-slate-700 mb-4">Ventas por Método de Pago</p>
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                 {['cash', 'card', 'transfer'].map((type) => {
-                    const typeSales = sales.filter((s) => s.payment_type === type);
+                    const typeSales = sales.filter(
+                        (s) => s.payment_type === type && s.status !== 'cancelled',
+                    );
                     const total = typeSales.reduce(
                         (sum, s) => sum + parseFloat(s.total_price || '0'),
                         0,
