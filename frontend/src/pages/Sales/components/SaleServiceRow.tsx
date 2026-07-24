@@ -304,9 +304,6 @@ export const SaleServiceRow: React.FC<SaleServiceRowProps> = ({
                         <div className="space-y-2">
                             {suppliesArray.fields.map((supplyField, supplyIndex) => {
                                 const supply = watchedItem?.supplies?.[supplyIndex];
-                                const supplySubtotal =
-                                    (Number(supply?.quantity) || 0) *
-                                    (Number(supply?.unitPrice) || 0);
 
                                 return (
                                     <div
@@ -324,10 +321,9 @@ export const SaleServiceRow: React.FC<SaleServiceRowProps> = ({
                                                 }
                                                 control={control}
                                                 render={({ field, fieldState }) => {
-                                                    const supplyOptions: ComboboxOption[] =
-                                                        products
-                                                            .filter((p) => p.is_service_supply)
-                                                            .map((p) => {
+                                                    const supplyOptions: ComboboxOption[] = products
+                                                        .filter((p) => p.is_service_supply)
+                                                        .map((p) => {
                                                             const stockNum = Number(p.stock ?? 0);
                                                             const isOutOfStock = stockNum === 0;
                                                             return {
@@ -533,16 +529,6 @@ export const SaleServiceRow: React.FC<SaleServiceRowProps> = ({
                                                         />
                                                     )}
                                                 />
-                                            </div>
-                                        </div>
-
-                                        {/* Subtotal */}
-                                        <div className="flex flex-col gap-1 w-24">
-                                            <label className="text-[10px] font-medium text-slate-400">
-                                                Subtotal
-                                            </label>
-                                            <div className="px-2.5 py-1.5 bg-violet-50 border border-violet-100 rounded-md text-xs font-semibold text-violet-700 h-[30px] flex items-center">
-                                                ${supplySubtotal.toFixed(0)}
                                             </div>
                                         </div>
 

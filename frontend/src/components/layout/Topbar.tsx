@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { User, ChevronDown, UserCircle, Settings, LogOut, ChevronUp } from 'lucide-react';
+import { User, ChevronDown, LogOut, ChevronUp } from 'lucide-react';
 import { Menu } from 'primereact/menu';
 import type { MenuItem as MenuPrimeItem } from 'primereact/menuitem';
 import { useAuth } from '../../hooks/useAuth';
@@ -19,14 +19,12 @@ export const Topbar: React.FC = () => {
         manager: 'Gerente',
         cashier: 'Cajero',
     };
-    const displayRole = user?.role ? roleLabels[user.role] ?? user.role : '';
+    const displayRole = user?.role ? (roleLabels[user.role] ?? user.role) : '';
 
     const handleLogout = () => {
         logout();
         navigate('/login');
     };
-    const goToSettings = () => navigate('/settings');
-    const goToProfile = () => navigate('/profile');
 
     const handleToggleMenu = (e: React.MouseEvent<HTMLButtonElement>) => menuRef.current?.toggle(e);
     const handleCloseMenu = () => setIsMenuOpen(false);
@@ -35,29 +33,6 @@ export const Topbar: React.FC = () => {
     const iconSize = 22;
 
     const userMenuItems: MenuPrimeItem[] = [
-        {
-            template: () => (
-                <MenuItem
-                    label="Perfil"
-                    icon={<UserCircle size={iconSize} className="shrink-0" />}
-                    onClick={goToProfile}
-                    className={`text-slate-700 hover:bg-slate-50`}
-                />
-            ),
-        },
-        {
-            template: () => (
-                <MenuItem
-                    label="Configuración"
-                    icon={<Settings size={iconSize} className="shrink-0" />}
-                    onClick={goToSettings}
-                    className={`text-slate-700 hover:bg-slate-50`}
-                />
-            ),
-        },
-        {
-            separator: true,
-        },
         {
             template: () => (
                 <MenuItem
