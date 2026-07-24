@@ -73,7 +73,7 @@ export const OpenSessionPage: React.FC = () => {
                             </label>
                             <div className="relative">
                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-medium">
-                                    $
+                                    C$
                                 </span>
                                 <input
                                     id="opening_amount"
