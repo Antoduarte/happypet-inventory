@@ -1,12 +1,5 @@
 import React, { useRef, useState } from 'react';
-import {
-    User,
-    ChevronDown,
-    UserCircle,
-    Settings,
-    LogOut,
-    ChevronUp,
-} from 'lucide-react';
+import { User, ChevronDown, UserCircle, Settings, LogOut, ChevronUp } from 'lucide-react';
 import { Menu } from 'primereact/menu';
 import type { MenuItem as MenuPrimeItem } from 'primereact/menuitem';
 import { useAuth } from '../../hooks/useAuth';
@@ -16,8 +9,17 @@ import { MenuItem } from '../ui/MenuItem';
 export const Topbar: React.FC = () => {
     const menuRef = useRef<Menu>(null);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const { logout } = useAuth();
+    const { user, logout } = useAuth();
     const navigate = useNavigate();
+
+    const displayName = user?.name || user?.email || 'Usuario';
+
+    const roleLabels: Record<string, string> = {
+        admin: 'Administrador',
+        manager: 'Gerente',
+        cashier: 'Cajero',
+    };
+    const displayRole = user?.role ? roleLabels[user.role] ?? user.role : '';
 
     const handleLogout = () => {
         logout();
@@ -86,22 +88,9 @@ export const Topbar: React.FC = () => {
                 }}
             />
             <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 sticky top-0 z-10">
-                <div className="flex items-center flex-1">
-                    {/* Search bar commented out
-                    <div className="relative w-full max-w-md hidden md:block">
-                        <input
-                            type="text"
-                            placeholder="Buscar..."
-                            className="w-full pl-10 pr-4 py-2 bg-slate-100 border-none rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-brand-light transition-all"
-                        />
-                        <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
-                    </div>
-                    */}
-                </div>
+                <div className="flex items-center flex-1"></div>
 
                 <div className="flex items-center gap-4">
-                    {/* Notifications removed */}
-
                     <div className="h-8 w-px bg-slate-200 mx-2"></div>
 
                     <button
@@ -116,9 +105,9 @@ export const Topbar: React.FC = () => {
                         </div>
                         <div className="hidden md:block text-left">
                             <p className="text-sm font-medium text-slate-700 leading-tight">
-                                Usuario Administrador
+                                {displayName}
                             </p>
-                            <p className="text-xs text-slate-500">Administrador</p>
+                            <p className="text-xs text-slate-500">{displayRole}</p>
                         </div>
                         {isMenuOpen ? (
                             <ChevronUp

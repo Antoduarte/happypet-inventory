@@ -43,7 +43,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const isLoading = false;
 
     const login = useCallback(async (email: string, password: string) => {
-        const { role, user_id, name } = await authService.login(email, password);
+        const { role, user_id, name, email: userEmail } = await authService.login(email, password);
         const sessionData = await cashSessionService.getActiveSession();
         const cashSessionIdVal = sessionData?.id ?? null;
         const cashSessionStatusVal = sessionData?.status ?? null;
@@ -59,6 +59,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             id: user_id,
             role,
             name,
+            email: userEmail,
             hasCashSession: !!cashSessionIdVal,
             cashSessionId: cashSessionIdVal,
             cashSessionStatus: cashSessionStatusVal,

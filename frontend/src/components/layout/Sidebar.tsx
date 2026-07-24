@@ -15,13 +15,11 @@ import {
 } from 'lucide-react';
 import React, { useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-// import { usePermission } from '../../hooks/usePermission';
 
 export const Sidebar: React.FC = () => {
     const location = useLocation();
     const [isCollapsed, setIsCollapsed] = useState(false);
     const { cashSessionId, cashSessionStatus } = useAuth();
-    // const { canAccessUsers, canManageProducts } = usePermission();
 
     const getCashSessionPath = () => {
         if (cashSessionStatus === 'suspended' && cashSessionId) {
@@ -59,7 +57,14 @@ export const Sidebar: React.FC = () => {
       `}
         >
             <div className="h-16 flex items-center justify-between px-4 border-b border-gray-300">
-                {!isCollapsed && <img src={petLogo} alt="HappyPet" className="h-10 w-auto" />}
+                {!isCollapsed && (
+                    <div className="flex items-center gap-2">
+                        <img src={petLogo} alt="HappyPet" className="h-12 w-auto" />
+                        <span style={{ color: '#680a7c' }} className="text-xl font-bold">
+                            HappyPet
+                        </span>
+                    </div>
+                )}
                 <button
                     onClick={() => setIsCollapsed(!isCollapsed)}
                     className={`p-1.5 rounded-lg hover:bg-slate-800 transition-colors text-slate-400 hover:text-white ${isCollapsed ? 'mx-auto' : ''}`}

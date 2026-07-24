@@ -17,6 +17,7 @@ export interface AuthUser {
     id: number | null;
     role: UserRole | null;
     name: string;
+    email?: string;
     hasCashSession: boolean;
     cashSessionId?: number | null;
     cashSessionStatus?: CashSessionStatus | null;
