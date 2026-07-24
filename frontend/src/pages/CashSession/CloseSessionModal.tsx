@@ -69,13 +69,13 @@ export const CloseSessionModal: React.FC<CloseSessionModalProps> = ({
                     <div>
                         <p className="text-xs text-slate-400 mb-0.5">Monto de apertura</p>
                         <p className="text-sm font-semibold text-slate-700">
-                            ${openingAmount.toFixed(2)}
+                            C${openingAmount.toFixed(2)}
                         </p>
                     </div>
                     <div>
                         <p className="text-xs text-slate-400 mb-0.5">Monto esperado</p>
                         <p className="text-sm font-semibold text-slate-700">
-                            ${expectedAmount.toFixed(2)}
+                            C${expectedAmount.toFixed(2)}
                         </p>
                     </div>
                 </div>
@@ -87,7 +87,7 @@ export const CloseSessionModal: React.FC<CloseSessionModalProps> = ({
                     </label>
                     <div className="relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-medium">
-                            $
+                            C$
                         </span>
                         <input
                             type="number"

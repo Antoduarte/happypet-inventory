@@ -107,7 +107,7 @@ export const ResumeSessionPage: React.FC = () => {
                             <div className="flex justify-between items-center">
                                 <span className="text-sm text-slate-500">Monto de apertura</span>
                                 <span className="text-sm font-semibold text-slate-700">
-                                    ${openingAmount.toFixed(2)}
+                                    C${openingAmount.toFixed(2)}
                                 </span>
                             </div>
                             {suspendedAt && (
@@ -122,7 +122,7 @@ export const ResumeSessionPage: React.FC = () => {
                                 <div className="flex justify-between items-center">
                                     <span className="text-sm text-slate-500">Efectivo contado</span>
                                     <span className="text-sm font-semibold text-slate-700">
-                                        ${countedAmount.toFixed(2)}
+                                        C${countedAmount.toFixed(2)}
                                     </span>
                                 </div>
                             )}
@@ -138,7 +138,7 @@ export const ResumeSessionPage: React.FC = () => {
                                                   : 'text-red-600'
                                         }`}
                                     >
-                                        {difference >= 0 ? '+' : ''}${difference.toFixed(2)}
+                                        {difference >= 0 ? '+' : ''}C${difference.toFixed(2)}
                                     </span>
                                 </div>
                             )}
