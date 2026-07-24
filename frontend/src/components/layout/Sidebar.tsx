@@ -1,4 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
+import petLogo from '../../assets/pet-logo.webp';
 import {
     Home,
     Package,
@@ -58,9 +59,7 @@ export const Sidebar: React.FC = () => {
       `}
         >
             <div className="h-16 flex items-center justify-between px-4 border-b border-gray-300">
-                {!isCollapsed && (
-                    <span className="text-xl font-bold text-brand-light">HappyPet</span>
-                )}
+                {!isCollapsed && <img src={petLogo} alt="HappyPet" className="h-10 w-auto" />}
                 <button
                     onClick={() => setIsCollapsed(!isCollapsed)}
                     className={`p-1.5 rounded-lg hover:bg-slate-800 transition-colors text-slate-400 hover:text-white ${isCollapsed ? 'mx-auto' : ''}`}
