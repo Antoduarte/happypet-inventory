@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Package, TrendingUp, AlertTriangle, Scissors } from 'lucide-react';
-import { PageHeader } from '../../components/ui/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { useDashboard } from '../../hooks/useDashboard';
 import { useReports } from '../../hooks/useReports';
@@ -79,8 +78,6 @@ export const Dashboard: React.FC = () => {
 
     return (
         <div className="flex flex-col gap-6">
-            <PageHeader title="Resumen" breadcrumbs={[{ label: 'Panel' }]} />
-
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
                 <KpiCard
                     title="Ingresos de hoy"
