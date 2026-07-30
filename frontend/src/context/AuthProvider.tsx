@@ -1,8 +1,9 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { AuthContext } from './AuthContext';
 import { authService } from '../services/auth';
 import { cashSessionService } from '../services/cash';
 import { TokenService } from '../services/token';
+import { AuthStorageService } from '../services/authStorage';
 import type { AuthUser, CashSessionStatus } from '../interfaces/auth';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -14,31 +15,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return null;
         }
 
-        const storedUser = localStorage.getItem('auth_user');
-        if (!storedUser) {
-            return null;
-        }
-
-        try {
-            return JSON.parse(storedUser) as AuthUser;
-        } catch {
-            return null;
-        }
+        return AuthStorageService.getAuthUser();
     });
-    const [cashSessionId, setCashSessionId] = useState<number | null>(() => {
-        const stored = localStorage.getItem('cash_session_id');
-        return stored ? parseInt(stored, 10) : null;
-    });
-    const [cashSessionStatus, setCashSessionStatus] = useState<CashSessionStatus | null>(() => {
-        const stored = localStorage.getItem('cash_session_status');
-        return (stored as CashSessionStatus) || null;
-    });
+    const [cashSessionId, setCashSessionId] = useState<number | null>(() =>
+        AuthStorageService.getCashSessionId(),
+    );
+    const [cashSessionStatus, setCashSessionStatus] = useState<CashSessionStatus | null>(() =>
+        AuthStorageService.getCashSessionStatus(),
+    );
     const [managerCode, setManagerCode] = useState<string | null>(() => {
         if (!TokenService.getAccessToken()) {
             return null;
         }
-        return localStorage.getItem('manager_auth_code') || null;
+        return AuthStorageService.getManagerCode();
     });
+
+    useEffect(() => {
+        if (!isAuthenticated) return;
+        cashSessionService.getActiveSession().then((data) => {
+            const id = data?.id ?? null;
+            const status = data?.status ?? null;
+
+            if (id === cashSessionId && status === cashSessionStatus) return;
+
+            setCashSessionId(id);
+            setCashSessionStatus(status);
+            AuthStorageService.setCashSessionId(id);
+            AuthStorageService.setCashSessionStatus(status);
+            if (user) {
+                const updatedUser = {
+                    ...user,
+                    cashSessionId: id,
+                    cashSessionStatus: status,
+                    hasCashSession: !!id,
+                };
+                setUser(updatedUser);
+                AuthStorageService.setAuthUser(updatedUser);
+            }
+        });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const isLoading = false;
 
@@ -48,11 +64,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const cashSessionIdVal = sessionData?.id ?? null;
         const cashSessionStatusVal = sessionData?.status ?? null;
 
-        localStorage.setItem('cash_session_id', String(cashSessionIdVal ?? ''));
-        localStorage.setItem('cash_session_status', cashSessionStatusVal ?? '');
+        AuthStorageService.setCashSessionId(cashSessionIdVal);
+        AuthStorageService.setCashSessionStatus(cashSessionStatusVal);
 
-        // Un login nuevo debe volver a autorizar; no heredar el código de otro usuario/sesión.
-        localStorage.removeItem('manager_auth_code');
+        AuthStorageService.removeManagerCode();
         setManagerCode(null);
 
         const loggedUser: AuthUser = {
@@ -65,11 +80,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             cashSessionStatus: cashSessionStatusVal,
         };
 
-        localStorage.setItem('auth_user', JSON.stringify(loggedUser));
+        AuthStorageService.setAuthUser(loggedUser);
         setUser(loggedUser);
         setCashSessionId(cashSessionIdVal);
         setCashSessionStatus(cashSessionStatusVal);
         setIsAuthenticated(true);
+
+        return { cashSessionId: cashSessionIdVal, cashSessionStatus: cashSessionStatusVal };
     }, []);
 
     const clearState = useCallback(() => {
@@ -82,23 +99,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const logout = useCallback(() => {
         authService.logout();
-        localStorage.removeItem('cash_session_id');
-        localStorage.removeItem('cash_session_status');
-        localStorage.removeItem('manager_auth_code');
+        AuthStorageService.clearSessionData();
         clearState();
     }, [clearState]);
 
     const setManagerAuthorization = useCallback((code: string) => {
         setManagerCode(code);
-        localStorage.setItem('manager_auth_code', code);
+        AuthStorageService.setManagerCode(code);
     }, []);
 
     const updateCashSession = useCallback(
         (id: number | null, status: CashSessionStatus | null) => {
             setCashSessionId(id);
             setCashSessionStatus(status);
-            localStorage.setItem('cash_session_id', String(id ?? ''));
-            localStorage.setItem('cash_session_status', status ?? '');
+            AuthStorageService.setCashSessionId(id);
+            AuthStorageService.setCashSessionStatus(status);
             if (user) {
                 const updatedUser = {
                     ...user,
@@ -107,7 +122,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     hasCashSession: !!id,
                 };
                 setUser(updatedUser);
-                localStorage.setItem('auth_user', JSON.stringify(updatedUser));
+                AuthStorageService.setAuthUser(updatedUser);
             }
         },
         [user],

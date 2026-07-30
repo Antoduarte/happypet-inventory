@@ -4,7 +4,10 @@ import type { AuthUser, CashSessionStatus } from '../interfaces/auth';
 export interface AuthContextValue {
     isAuthenticated: boolean;
     isLoading: boolean;
-    login: (email: string, password: string) => Promise<void>;
+    login: (
+        email: string,
+        password: string,
+    ) => Promise<{ cashSessionId: number | null; cashSessionStatus: CashSessionStatus | null }>;
     logout: () => void;
     user: AuthUser | null;
     cashSessionId: number | null;

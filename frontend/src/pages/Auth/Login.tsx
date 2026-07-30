@@ -30,13 +30,11 @@ export const Login: React.FC = () => {
 
     const onSubmit = async ({ email, password }: LoginForm) => {
         try {
-            await login(email, password);
-            const sessionStatus = localStorage.getItem('cash_session_status');
-            const sessionId = localStorage.getItem('cash_session_id');
+            const { cashSessionId, cashSessionStatus } = await login(email, password);
 
-            if (sessionStatus === 'suspended' && sessionId) {
-                navigate(`/cash/resume/${sessionId}`, { replace: true });
-            } else if (sessionStatus === 'open') {
+            if (cashSessionStatus === 'suspended' && cashSessionId) {
+                navigate(`/cash/resume/${cashSessionId}`, { replace: true });
+            } else if (cashSessionStatus === 'open') {
                 navigate('/', { replace: true });
             } else {
                 navigate('/cash/open', { replace: true });
