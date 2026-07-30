@@ -3,17 +3,15 @@ import { api } from './api';
 export interface DashboardStats {
     total_products: number;
     today_income: string;
+    pending_credit_total: string;
+    pending_credit_count: number;
     low_stock_count: number;
     today_services: number;
 }
 
 class DashboardService {
     async getStats(): Promise<DashboardStats> {
-        try {
-            return await api.get<DashboardStats>('/dashboard/');
-        } catch (error) {
-            throw error;
-        }
+        return api.get<DashboardStats>('/dashboard/');
     }
 }
 

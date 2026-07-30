@@ -8,6 +8,7 @@ import {
     ShoppingBag,
     TrendingUp,
     User,
+    Wallet,
     type LucideIcon,
 } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
@@ -168,7 +169,7 @@ export const ReportsPage: React.FC = () => {
             ) : (
                 <>
                     {/* Summary */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                         <SummaryCard
                             label="Ingresos totales"
                             value={report ? formatCurrency(report.summary.total_income) : '—'}
@@ -179,6 +180,17 @@ export const ReportsPage: React.FC = () => {
                             label="N.º de ventas"
                             value={report ? String(report.summary.sales_count) : '—'}
                             icon={ShoppingBag}
+                            isLoading={isLoading}
+                        />
+                        <SummaryCard
+                            label="Créditos pendientes"
+                            value={report ? formatCurrency(report.pending_credit_total) : '—'}
+                            sublabel={
+                                report
+                                    ? `${report.pending_credit_count} ${report.pending_credit_count === 1 ? 'venta' : 'ventas'} pendiente${report.pending_credit_count === 1 ? '' : 's'}`
+                                    : undefined
+                            }
+                            icon={Wallet}
                             isLoading={isLoading}
                         />
                         <SummaryCard
@@ -260,11 +272,18 @@ export const ReportsPage: React.FC = () => {
 interface SummaryCardProps {
     label: string;
     value: string;
+    sublabel?: string;
     icon: LucideIcon;
     isLoading?: boolean;
 }
 
-const SummaryCard: React.FC<SummaryCardProps> = ({ label, value, icon: Icon, isLoading }) => (
+const SummaryCard: React.FC<SummaryCardProps> = ({
+    label,
+    value,
+    sublabel,
+    icon: Icon,
+    isLoading,
+}) => (
     <Card>
         <div className="flex items-center gap-4">
             <span className="shrink-0 inline-flex items-center justify-center w-12 h-12 rounded-xl bg-brand/10 text-brand">
@@ -275,7 +294,10 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ label, value, icon: Icon, isL
                 {isLoading ? (
                     <div className="h-7 w-24 bg-slate-200 rounded animate-pulse mt-1" />
                 ) : (
-                    <p className="text-2xl font-bold text-slate-800">{value}</p>
+                    <>
+                        <p className="text-2xl font-bold text-slate-800">{value}</p>
+                        {sublabel && <p className="text-xs text-slate-400">{sublabel}</p>}
+                    </>
                 )}
             </div>
         </div>

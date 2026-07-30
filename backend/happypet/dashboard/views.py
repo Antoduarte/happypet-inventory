@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.db.models import Count, Sum
@@ -11,7 +12,9 @@ from rest_framework.response import Response
 from happypet.products.models import Product
 from happypet.products.constants import (
     PAYMENT_CHOICES,
+    PAYMENT_CREDIT,
     SAILE_STATUS_COMPLETED,
+    SAILE_STATUS_PENDING,
     SALE_ITEM_PRODUCT,
     SALE_ITEM_SERVICE,
 )
@@ -23,7 +26,14 @@ from .serializers import SaleDetailRowSerializer
 User = get_user_model()
 
 
+def _format_money(value) -> str:
+    """Format a numeric value as a string with exactly two decimal places."""
+    return f"{Decimal(str(value)):.2f}"
+
+
 class DashboardStatsView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
         today = date.today()
 
@@ -35,6 +45,16 @@ class DashboardStatsView(APIView):
             sale_date__date=today,
             status='completed'
         ).aggregate(total=Sum('total_price'))['total'] or 0
+
+        pending_credit_qs = Sale.objects.filter(
+            sale_date__date=today,
+            status=SAILE_STATUS_PENDING,
+            payment_type=PAYMENT_CREDIT,
+        )
+        pending_credit_total = pending_credit_qs.aggregate(
+            total=Sum('total_price')
+        )['total'] or 0
+        pending_credit_count = pending_credit_qs.count()
 
         low_stock_count = Product.objects.filter(
             deleted_at__isnull=True,
@@ -50,7 +70,9 @@ class DashboardStatsView(APIView):
 
         return Response({
             'total_products': total_products,
-            'today_income': str(today_income),
+            'today_income': _format_money(today_income),
+            'pending_credit_total': _format_money(pending_credit_total),
+            'pending_credit_count': pending_credit_count,
             'low_stock_count': low_stock_count,
             'today_services': today_services,
         })
@@ -157,7 +179,7 @@ class SalesReportView(APIView):
                 'period': row['period'].date().isoformat()
                 if hasattr(row['period'], 'date')
                 else row['period'].isoformat(),
-                'total': str(row['total'] or 0),
+                'total': _format_money(row['total'] or 0),
                 'count': row['count'],
             }
             for row in qs.annotate(period=trunc('sale_date'))
@@ -171,14 +193,37 @@ class SalesReportView(APIView):
             row['payment_type']: row['total'] or 0
             for row in qs.values('payment_type').annotate(total=Sum('total_price'))
         }
+        # Exclude credit from the completed-sales breakdown because pending credit
+        # is shown separately.
+        payment_choices_without_credit = [
+            (payment_type, label)
+            for payment_type, label in PAYMENT_CHOICES
+            if payment_type != PAYMENT_CREDIT
+        ]
         by_payment = [
             {
                 'type': payment_type,
                 'label': label,
-                'total': str(payment_totals.get(payment_type, 0)),
+                'total': _format_money(payment_totals.get(payment_type, 0)),
             }
-            for payment_type, label in PAYMENT_CHOICES
+            for payment_type, label in payment_choices_without_credit
         ]
+
+        # --- Pending credit total ---
+        pending_credit_qs = Sale.objects.filter(
+            status=SAILE_STATUS_PENDING,
+            payment_type=PAYMENT_CREDIT,
+            sale_date__date__gte=start,
+            sale_date__date__lte=end,
+        )
+        if is_cashier:
+            pending_credit_qs = pending_credit_qs.filter(cash_session__user=user)
+        elif cashier_id:
+            pending_credit_qs = pending_credit_qs.filter(cash_session__user_id=cashier_id)
+        pending_credit_total = pending_credit_qs.aggregate(
+            total=Sum('total_price')
+        )['total'] or 0
+        pending_credit_count = pending_credit_qs.count()
 
         # --- Per-cashier breakdown (admin/manager only) ---
         by_cashier = []
@@ -192,7 +237,7 @@ class SalesReportView(APIView):
                 by_cashier.append({
                     'user_id': user_id,
                     'name': row['cash_session__user__name'] or 'Sin caja',
-                    'total': str(row['total'] or 0),
+                    'total': _format_money(row['total'] or 0),
                     'count': row['count'],
                 })
 
@@ -201,16 +246,18 @@ class SalesReportView(APIView):
             'start': start.isoformat(),
             'end': end.isoformat(),
             'summary': {
-                'total_income': str(total_income),
+                'total_income': _format_money(total_income),
                 'sales_count': sales_count,
-                'avg_ticket': str(round(avg_ticket, 2)),
-                'products_income': str(products_income),
+                'avg_ticket': _format_money(avg_ticket),
+                'products_income': _format_money(products_income),
                 'products_count': product_lines.count(),
-                'services_income': str(services_income),
+                'services_income': _format_money(services_income),
                 'services_count': service_lines.count(),
             },
             'by_period': by_period,
             'by_payment': by_payment,
+            'pending_credit_total': _format_money(pending_credit_total),
+            'pending_credit_count': pending_credit_count,
             'by_cashier': by_cashier,
         })
 

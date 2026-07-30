@@ -9,8 +9,10 @@ from happypet.cash.models import CashRegister, CashSession
 from happypet.products.constants import (
     PAYMENT_CARD,
     PAYMENT_CASH,
+    PAYMENT_CREDIT,
     SAILE_STATUS_CANCELLED,
     SAILE_STATUS_COMPLETED,
+    SAILE_STATUS_PENDING,
     SALE_ITEM_PRODUCT,
     SALE_ITEM_SERVICE,
 )
@@ -167,7 +169,7 @@ class SalesReportViewTests(APITestCase):
 
         self.assertEqual(summary["products_income"], "100.00")
         self.assertEqual(summary["products_count"], 1)
-        self.assertEqual(summary["services_income"], "0")
+        self.assertEqual(summary["services_income"], "0.00")
         self.assertEqual(summary["services_count"], 0)
 
     # ── Cashier: restricted to today + own sessions ────────────────────────
@@ -194,6 +196,25 @@ class SalesReportViewTests(APITestCase):
     def test_unauthenticated_gets_401(self):
         res = self.client.get(REPORT_URL)
         self.assertEqual(res.status_code, 401)
+
+    def test_pending_credit_is_excluded_from_payment_breakdown(self):
+        self._make_sale("100.00", self.session_a, payment=PAYMENT_CASH)
+        self._make_sale(
+            "50.00",
+            self.session_a,
+            payment=PAYMENT_CREDIT,
+            status=SAILE_STATUS_PENDING,
+        )
+
+        self.client.force_authenticate(self.admin)
+        res = self.client.get(REPORT_URL)
+        data = res.json()
+
+        by_payment = {row["type"]: row["total"] for row in data["by_payment"]}
+        self.assertEqual(by_payment.get(PAYMENT_CASH), "100.00")
+        self.assertNotIn(PAYMENT_CREDIT, by_payment)
+        self.assertEqual(data["pending_credit_total"], "50.00")
+        self.assertEqual(data["pending_credit_count"], 1)
 
 
 SELLERS_URL = "/api/reports/sellers/"
@@ -420,4 +441,58 @@ class SalesDetailReportViewTests(APITestCase):
 
     def test_unauthenticated_gets_401(self):
         res = self.client.get(DETAIL_URL)
+        self.assertEqual(res.status_code, 401)
+
+
+DASHBOARD_URL = "/api/dashboard/"
+
+
+class DashboardStatsViewTests(APITestCase):
+    """Integration tests for GET /api/dashboard/."""
+
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            email="admin@test.com", password="pass", role="admin", name="Admin"
+        )
+        self.cashier = User.objects.create_user(
+            email="ana@test.com", password="pass", role="cashier", name="Ana"
+        )
+        self.register = CashRegister.objects.create(name="Caja 1")
+        self.session = CashSession.objects.create(
+            cash_register=self.register,
+            user=self.cashier,
+            opening_amount=Decimal("0.00"),
+            status=CashSession.STATUS_OPEN,
+        )
+
+    def _make_sale(self, total, payment=PAYMENT_CASH, status=SAILE_STATUS_COMPLETED):
+        return Sale.objects.create(
+            status=status,
+            payment_type=payment,
+            total_price=Decimal(total),
+            subtotal=Decimal(total),
+            quantity=1,
+            cash_session=self.session,
+        )
+
+    def test_returns_expected_keys(self):
+        self._make_sale("100.00")
+        self._make_sale(
+            "30.00", payment=PAYMENT_CREDIT, status=SAILE_STATUS_PENDING
+        )
+
+        self.client.force_authenticate(self.admin)
+        res = self.client.get(DASHBOARD_URL)
+        data = res.json()
+
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("today_income", data)
+        self.assertIn("pending_credit_total", data)
+        self.assertIn("pending_credit_count", data)
+        self.assertEqual(data["today_income"], "100.00")
+        self.assertEqual(data["pending_credit_total"], "30.00")
+        self.assertEqual(data["pending_credit_count"], 1)
+
+    def test_unauthenticated_gets_401(self):
+        res = self.client.get(DASHBOARD_URL)
         self.assertEqual(res.status_code, 401)

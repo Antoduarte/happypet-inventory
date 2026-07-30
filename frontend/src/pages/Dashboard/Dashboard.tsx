@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Package, TrendingUp, AlertTriangle, Scissors } from 'lucide-react';
+import { Package, TrendingUp, AlertTriangle, Scissors, Wallet } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { useDashboard } from '../../hooks/useDashboard';
 import { useReports } from '../../hooks/useReports';
@@ -12,7 +12,6 @@ import { PaymentMethodsList } from './components/PaymentMethodsList';
 import { RecentSalesCard } from './components/RecentSalesCard';
 import { CashStatusCard } from './components/CashStatusCard';
 
-/** Builds a YYYY-MM-DD string from local date parts (avoids UTC shift). */
 const toISODate = (date: Date): string => {
     const y = date.getFullYear();
     const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -117,7 +116,7 @@ export const Dashboard: React.FC = () => {
             </div>
 
             {isAdminOrManager && (
-                <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
                     <Card
                         title="Ventas — últimos 7 días"
                         className="lg:col-span-2"
@@ -147,6 +146,52 @@ export const Dashboard: React.FC = () => {
                             </p>
                         )}
                     </Card>
+
+                    <div className="flex flex-col gap-6">
+                        <Card title="Créditos pendientes" className="flex-1">
+                            {reportLoading || !report ? (
+                                <div className="h-24 animate-pulse rounded-lg bg-slate-100" />
+                            ) : (
+                                <div className="flex items-center gap-4 h-full px-2">
+                                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-600">
+                                        <Wallet size={22} />
+                                    </div>
+                                    <div>
+                                        <p className="text-xl font-bold text-slate-800">
+                                            {formatCurrency(report.pending_credit_total)}
+                                        </p>
+                                        <p className="text-xs text-slate-400">Por cobrar</p>
+                                    </div>
+                                </div>
+                            )}
+                        </Card>
+
+                        <Card title="Ventas a crédito" className="flex-1">
+                            {reportLoading || !report ? (
+                                <div className="h-24 animate-pulse rounded-lg bg-slate-100" />
+                            ) : (
+                                <div className="flex flex-col justify-between h-full px-2">
+                                    <div>
+                                        <p className="text-2xl font-bold text-slate-800">
+                                            {report.pending_credit_count}
+                                        </p>
+                                        <p className="text-xs text-slate-400">
+                                            {report.pending_credit_count === 1
+                                                ? 'venta pendiente'
+                                                : 'ventas pendientes'}
+                                        </p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => navigate('/sales')}
+                                        className="mt-3 text-xs font-medium text-brand hover:text-brand-dark text-left"
+                                    >
+                                        Ver ventas →
+                                    </button>
+                                </div>
+                            )}
+                        </Card>
+                    </div>
                 </div>
             )}
 

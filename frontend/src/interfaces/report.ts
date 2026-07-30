@@ -85,5 +85,7 @@ export interface SalesReport {
     summary: ReportSummary;
     by_period: ReportPeriodPoint[];
     by_payment: ReportPaymentRow[];
+    pending_credit_total: string;
+    pending_credit_count: number;
     by_cashier: ReportCashierRow[];
 }
