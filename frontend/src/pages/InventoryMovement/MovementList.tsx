@@ -120,8 +120,8 @@ export const MovementList: React.FC = () => {
 
             <Card>
                 <div className="flex flex-col gap-4">
-                    {/* Search */}
-                    <div className="flex gap-2 items-center">
+                    {/* Search + filters */}
+                    <div className="flex gap-2 items-center flex-wrap">
                         <div className="relative w-full max-w-sm">
                             <Input
                                 placeholder="Buscar por notas o producto..."
@@ -134,11 +134,7 @@ export const MovementList: React.FC = () => {
                                 size={18}
                             />
                         </div>
-                    </div>
-
-                    {/* Vendor filter */}
-                    {isAdminOrManager && (
-                        <div className="flex items-center gap-2">
+                        {isAdminOrManager && (
                             <SelectFilter
                                 filterId="seller"
                                 placeholder="Vendedor"
@@ -149,8 +145,8 @@ export const MovementList: React.FC = () => {
                                 onChange={setSellerId}
                                 fetchOptions={fetchSellerOptions}
                             />
-                        </div>
-                    )}
+                        )}
+                    </div>
 
                     {/* Table */}
                     <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">

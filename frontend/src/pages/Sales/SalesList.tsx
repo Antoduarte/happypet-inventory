@@ -175,21 +175,6 @@ export const SalesList: React.FC = () => {
                 </div>
             )}
 
-            {isAdminOrManager && (
-                <div className="mb-4 flex items-center gap-2">
-                    <SelectFilter
-                        filterId="seller"
-                        placeholder="Vendedor"
-                        allLabel="Todos los vendedores"
-                        icon={User}
-                        ariaLabel="Filtrar por vendedor"
-                        selectedId={sellerId}
-                        onChange={setSellerId}
-                        fetchOptions={fetchSellerOptions}
-                    />
-                </div>
-            )}
-
             <Card>
                 <DataTable
                     data={sales}
@@ -197,6 +182,20 @@ export const SalesList: React.FC = () => {
                     searchKey="id"
                     searchPlaceholder="Buscar por ID de Pedido..."
                     onRowClick={handleRowClick}
+                    filters={
+                        isAdminOrManager && (
+                            <SelectFilter
+                                filterId="seller"
+                                placeholder="Vendedor"
+                                allLabel="Todos los vendedores"
+                                icon={User}
+                                ariaLabel="Filtrar por vendedor"
+                                selectedId={sellerId}
+                                onChange={setSellerId}
+                                fetchOptions={fetchSellerOptions}
+                            />
+                        )
+                    }
                 />
             </Card>
         </div>
