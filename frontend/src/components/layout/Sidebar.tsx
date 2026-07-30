@@ -19,7 +19,7 @@ import { useAuth } from '../../hooks/useAuth';
 export const Sidebar: React.FC = () => {
     const location = useLocation();
     const [isCollapsed, setIsCollapsed] = useState(false);
-    const { cashSessionId, cashSessionStatus } = useAuth();
+    const { user, cashSessionId, cashSessionStatus } = useAuth();
 
     const getCashSessionPath = () => {
         if (cashSessionStatus === 'suspended' && cashSessionId) {
@@ -45,7 +45,7 @@ export const Sidebar: React.FC = () => {
             label: 'Caja',
             show: true,
         },
-        { path: '/users', icon: Users, label: 'Usuarios', show: true },
+        { path: '/users', icon: Users, label: 'Usuarios', show: user?.role === 'admin' },
     ];
 
     const visibleItems = menuItems.filter((item) => item.show !== false);
@@ -60,9 +60,7 @@ export const Sidebar: React.FC = () => {
                 {!isCollapsed && (
                     <div className="flex items-center gap-2">
                         <img src={petLogo} alt="HappyPet" className="h-12 w-auto" />
-                        <span className="text-brand text-xl font-bold">
-                            HappyPet
-                        </span>
+                        <span className="text-brand text-xl font-bold">HappyPet</span>
                     </div>
                 )}
                 <button
