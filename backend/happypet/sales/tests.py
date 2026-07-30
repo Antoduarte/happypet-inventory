@@ -157,12 +157,12 @@ class SaleStatusServiceTests(TestCase):
 
     # ── Invalid / terminal transitions ─────────────────────────────────────
 
-    def test_completed_to_cancelled_raises(self):
+    def test_completed_to_cancelled_is_allowed(self):
         sale = self._create_pending_sale()
         sale.status = SAILE_STATUS_COMPLETED
         sale.save()
-        with self.assertRaisesMessage(ValidationError, "Terminal state cannot be changed."):
-            self.service.transition(sale, SAILE_STATUS_CANCELLED, self.user)
+        result = self.service.transition(sale, SAILE_STATUS_CANCELLED, self.user)
+        self.assertEqual(result.status, SAILE_STATUS_CANCELLED)
 
     def test_cancelled_to_any_raises(self):
         sale = self._create_pending_sale()

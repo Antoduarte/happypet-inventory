@@ -72,7 +72,12 @@ class SaleViewSet(viewsets.ModelViewSet):
 
         if "status" in request.data:
             # Cancelar una venta requiere autorización de gerente/admin para cajeros.
-            if request.data.get("status") == "cancelled":
+            # Completar una venta a crédito también la requiere.
+            status_value = request.data.get("status")
+            is_credit_completion = (
+                status_value == "completed" and instance.payment_type == "credit"
+            )
+            if status_value == "cancelled" or is_credit_completion:
                 auth_error = check_manager_authorization(request)
                 if auth_error:
                     return auth_error

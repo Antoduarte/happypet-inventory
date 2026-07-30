@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
 from happypet.products.models import Product, ProductPresentation
-from happypet.products.constants import DISCOUNT_CHOICES
+from happypet.products.constants import DISCOUNT_CHOICES, PAYMENT_CREDIT
 from happypet.products.services import InsufficientStockError
 from happypet.services.models import Service
 from happypet.users.models import ROLE_ADMIN, ROLE_MANAGER
@@ -250,10 +250,12 @@ class SaleCreateSerializer(serializers.Serializer):
                 sale.cash_session = cash_session
                 sale.save(update_fields=["cash_session"])
 
-            # Transition to completed automatically on creation
-            from .services import SaleStatusService
-            status_service = SaleStatusService()
-            status_service.transition(sale, "completed", self.context["request"].user)
+            # Credit sales stay pending until completed manually from the detail view.
+            if sale.payment_type != PAYMENT_CREDIT:
+                # Transition to completed automatically on creation
+                from .services import SaleStatusService
+                status_service = SaleStatusService()
+                status_service.transition(sale, "completed", self.context["request"].user)
 
             return sale
         except InsufficientStockError as exc:
@@ -271,13 +273,23 @@ class SaleStatusSerializer(serializers.Serializer):
     """Valida y ejecuta transiciones de estado de una venta (PATCH-only)."""
 
     status = serializers.ChoiceField(choices=["completed", "cancelled"])
+    payment_type = serializers.ChoiceField(
+        choices=["cash", "card", "transfer", "qr"],
+        required=False,
+        allow_blank=False,
+    )
 
     def update(self, instance, validated_data):
         from .services import SaleStatusService
 
         service = SaleStatusService()
         user = self.context["request"].user
-        return service.transition(instance, validated_data["status"], user)
+        return service.transition(
+            instance,
+            validated_data["status"],
+            user,
+            new_payment_type=validated_data.get("payment_type"),
+        )
 # ---------------------------------------------------------------------------
 # Read serializers (for GET responses)
 # ---------------------------------------------------------------------------

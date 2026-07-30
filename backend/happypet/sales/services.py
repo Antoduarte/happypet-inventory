@@ -20,6 +20,7 @@ from happypet.products.constants import (
     SALE_ITEM_PRODUCT,
     SALE_ITEM_SERVICE,
     PAYMENT_CASH,
+    PAYMENT_CREDIT,
     SAILE_STATUS_PENDING,
     SAILE_STATUS_COMPLETED,
     SAILE_STATUS_CANCELLED,
@@ -247,12 +248,19 @@ class SaleStatusService:
 
     Flujo:
       pending → completed   → opcionalmente crea CashMovement (cash + sesión abierta)
+      pending → cancelled   → revierte stock, crea InventoryMovement(type=in)
       completed → cancelled → revierte stock, crea InventoryMovement(type=in), egreso en caja
       cancelled             → bloqueado (estado terminal)
     """
 
     @transaction.atomic
-    def transition(self, sale: Sale, target_status: str, user) -> Sale:
+    def transition(
+        self,
+        sale: Sale,
+        target_status: str,
+        user,
+        new_payment_type: str | None = None,
+    ) -> Sale:
         """Ejecuta una transición de estado atómica con side effects."""
         # Bloquear la fila de la venta para evitar transiciones concurrentes
         locked_sale = Sale.objects.select_for_update().get(pk=sale.pk)
@@ -265,27 +273,69 @@ class SaleStatusService:
         if target_status == locked_sale.status:
             raise ValidationError("Invalid status transition.")
 
+        # ── Resolver método de pago para ventas a crédito ─────────────────────
+        was_credit = locked_sale.payment_type == PAYMENT_CREDIT
+        if target_status == SAILE_STATUS_COMPLETED and was_credit:
+            if not new_payment_type:
+                raise ValidationError(
+                    {"payment_type": "Required to complete a credit sale."}
+                )
+            if new_payment_type == PAYMENT_CREDIT:
+                raise ValidationError(
+                    {"payment_type": "Cannot complete a credit sale as credit."}
+                )
+            locked_sale.payment_type = new_payment_type
+
         # ── Ejecutar side effects ────────────────────────────────────────────
+        update_fields = ["status", "payment_type"]
         if target_status == SAILE_STATUS_COMPLETED:
-            self._complete_sale(locked_sale, user)
+            if was_credit and locked_sale.payment_type == PAYMENT_CASH:
+                locked_sale.cash_session = self._resolve_cash_session_for_completion(
+                    locked_sale, user
+                )
+                if locked_sale.cash_session:
+                    update_fields.append("cash_session")
+            self._complete_sale(locked_sale, user, was_credit=was_credit)
         elif target_status == SAILE_STATUS_CANCELLED:
             self._cancel_sale(locked_sale, user)
 
-        # ── Persistir nuevo estado ───────────────────────────────────────────
+        # ── Persistir nuevo estado, método de pago y sesión de caja ────────────
         locked_sale.status = target_status
-        locked_sale.save(update_fields=["status"])
+        locked_sale.save(update_fields=update_fields)
         return locked_sale
 
     # ── Complete ─────────────────────────────────────────────────────────────
 
-    def _complete_sale(self, sale: Sale, user) -> None:
+    def _complete_sale(self, sale: Sale, user, was_credit: bool = False) -> None:
         """Crea CashMovement si el pago es en efectivo y hay sesión abierta."""
-        if sale.payment_type == PAYMENT_CASH and sale.cash_session:
+        if sale.payment_type != PAYMENT_CASH:
+            return
+
+        if was_credit:
+            # Credit sales completed as cash must be attached to the current open session.
+            if not sale.cash_session:
+                raise ValidationError({"cash_session": "No open cash session found."})
             if sale.cash_session.status != CashSession.STATUS_OPEN:
-                raise ValidationError(
-                    {"cash_session": "Cash session is not open."}
-                )
+                raise ValidationError({"cash_session": "Cash session is not open."})
             self._create_cash_movement(sale, user)
+        else:
+            # Backwards-compatible behaviour: only create movement when the sale
+            # already has an open cash session linked at creation time.
+            if sale.cash_session:
+                if sale.cash_session.status != CashSession.STATUS_OPEN:
+                    raise ValidationError({"cash_session": "Cash session is not open."})
+                self._create_cash_movement(sale, user)
+
+    def _resolve_cash_session_for_completion(self, sale: Sale, user) -> CashSession | None:
+        """Devuelve la sesión de caja activa para registrar el ingreso."""
+        from django.utils import timezone
+
+        today = timezone.now().date()
+        return CashSession.objects.filter(
+            user=user,
+            opened_at__date=today,
+            status=CashSession.STATUS_OPEN,
+        ).first()
 
     def _create_cash_movement(self, sale: Sale, user) -> None:
         """Registra un CashMovement de tipo income para una venta completada."""
