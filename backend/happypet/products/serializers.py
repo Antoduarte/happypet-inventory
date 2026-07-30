@@ -185,11 +185,13 @@ class MovementBatchSerializer(serializers.ModelSerializer):
         movement_type: str = validated_data["movement_type"]
         notes: str | None = validated_data.get("notes")
 
+        request = self.context.get("request")
         try:
             return stock_movement_service.apply_batch(
                 movement_type=movement_type,
                 notes=notes,
                 items=validated_data["_consolidated_items"],
+                created_by=request.user if request else None,
             )
         except InsufficientStockError as exc:
             raise serializers.ValidationError(

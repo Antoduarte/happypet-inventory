@@ -148,8 +148,13 @@ class InventoryMovementViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         """Cashiers only see inventory movements from batches they created."""
         user = self.request.user
-        if user and getattr(user, "role", None) == "cashier":
+        role = getattr(user, "role", None)
+        if role == "cashier":
             return self.queryset.filter(batch__created_by=user)
+        if role in ("admin", "manager"):
+            cashier_id = self.request.query_params.get("cashier_id")
+            if cashier_id:
+                return self.queryset.filter(batch__created_by_id=cashier_id)
         return self.queryset
 
 
@@ -190,8 +195,13 @@ class MovementBatchViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """Cashiers only see movement batches they created. Admin/manager see all."""
         user = self.request.user
-        if user and getattr(user, "role", None) == "cashier":
+        role = getattr(user, "role", None)
+        if role == "cashier":
             return self.queryset.filter(created_by=user)
+        if role in ("admin", "manager"):
+            cashier_id = self.request.query_params.get("cashier_id")
+            if cashier_id:
+                return self.queryset.filter(created_by_id=cashier_id)
         return self.queryset
 
     def create(self, request, *args, **kwargs):

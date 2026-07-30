@@ -191,4 +191,6 @@ export interface MovementBatchQueryParams {
     page?: number;
     page_size?: number;
     movement_type?: MovementType;
+    /** Filter by cashier (admin/manager only). */
+    cashier_id?: number;
 }

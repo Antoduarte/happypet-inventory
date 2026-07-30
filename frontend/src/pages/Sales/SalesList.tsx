@@ -1,12 +1,15 @@
-import React, { useEffect } from 'react';
-import { Plus, AlertTriangle } from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Plus, AlertTriangle, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { DataTable, type ColumnDef } from '../../components/ui/DataTable';
+import { SelectFilter } from '../../components/ui/SelectFilter';
 import { useSale } from '../../hooks/useSale';
 import { useAuth } from '../../hooks/useAuth';
+import { usePermission } from '../../hooks/usePermission';
+import { reportService } from '../../services/report';
 import type { Sale } from '../../interfaces/sale';
 
 /** Maps backend payment_type values to readable Spanish labels. */
@@ -35,11 +38,23 @@ export const SalesList: React.FC = () => {
     const { sales, fetchSales } = useSale();
     const navigate = useNavigate();
     const { cashSessionId, cashSessionStatus } = useAuth();
+    const { isAdmin, isManager } = usePermission();
+    const isAdminOrManager = isAdmin || isManager;
+    const [sellerId, setSellerId] = useState<number | null>(null);
 
-    // Load sales on mount
+    const fetchSellerOptions = useCallback(async () => {
+        try {
+            const sellers = await reportService.getSellers();
+            return { options: sellers.map((s) => ({ id: s.id, label: s.name })) };
+        } catch {
+            return { options: [], error: 'Error al cargar los vendedores' };
+        }
+    }, []);
+
+    // Load sales on mount and when seller filter changes
     useEffect(() => {
-        fetchSales();
-    }, [fetchSales]);
+        fetchSales({ cashier_id: sellerId ?? undefined });
+    }, [fetchSales, sellerId]);
 
     const handleOpenForm = () => {
         if (cashSessionStatus === 'suspended' && cashSessionId) {
@@ -157,6 +172,21 @@ export const SalesList: React.FC = () => {
                     >
                         {cashSessionStatus === 'suspended' ? 'Reabrir Caja' : 'Abrir Caja'}
                     </Button>
+                </div>
+            )}
+
+            {isAdminOrManager && (
+                <div className="mb-4 flex items-center gap-2">
+                    <SelectFilter
+                        filterId="seller"
+                        placeholder="Vendedor"
+                        allLabel="Todos los vendedores"
+                        icon={User}
+                        ariaLabel="Filtrar por vendedor"
+                        selectedId={sellerId}
+                        onChange={setSellerId}
+                        fetchOptions={fetchSellerOptions}
+                    />
                 </div>
             )}
 

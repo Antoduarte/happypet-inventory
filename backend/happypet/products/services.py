@@ -131,6 +131,7 @@ class StockMovementService:
         movement_type: str,
         notes: str | None,
         items: list[dict],
+        created_by=None,
     ) -> MovementBatch:
         """
         Apply a batch of inventory movements atomically.
@@ -155,6 +156,7 @@ class StockMovementService:
             batch = MovementBatch.objects.create(
                 movement_type=movement_type,
                 notes=notes,
+                created_by=created_by,
             )
 
             for item in items:

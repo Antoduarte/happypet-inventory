@@ -55,8 +55,14 @@ class SaleViewSet(viewsets.ModelViewSet):
         authenticated user can look up a specific sale by ticket number.
         """
         user = self.request.user
-        if user and getattr(user, "role", None) == "cashier" and self.action == "list":
-            return self.queryset.filter(cash_session__user=user)
+        if self.action == "list":
+            role = getattr(user, "role", None)
+            if role == "cashier":
+                return self.queryset.filter(cash_session__user=user)
+            if role in ("admin", "manager"):
+                cashier_id = self.request.query_params.get("cashier_id")
+                if cashier_id:
+                    return self.queryset.filter(cash_session__user_id=cashier_id)
         return self.queryset
 
     def get_permissions(self):

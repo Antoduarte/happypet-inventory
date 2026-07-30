@@ -141,4 +141,6 @@ export interface SaleQueryParams {
     status?: SaleStatus;
     /** Filter by payment type. */
     payment_type?: PaymentType;
+    /** Filter by cashier (admin/manager only). */
+    cashier_id?: number;
 }

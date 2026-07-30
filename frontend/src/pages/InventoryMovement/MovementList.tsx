@@ -7,15 +7,19 @@ import {
     ChevronDown,
     Package,
     Search,
+    User,
 } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Pagination } from '../../components/ui/Pagination';
 import { Input } from '../../components/ui/Input';
+import { SelectFilter } from '../../components/ui/SelectFilter';
 import { useNavigate } from 'react-router-dom';
 import { useStock } from '../../hooks/useStock';
 import { usePagination } from '../../hooks/usePagination';
+import { usePermission } from '../../hooks/usePermission';
+import { reportService } from '../../services/report';
 import type { MovementBatch, MovementType } from '../../interfaces/product';
 
 // ---------------------------------------------------------------------------
@@ -59,16 +63,29 @@ export const MovementList: React.FC = () => {
     const { batches, totalCount, isLoading, fetchBatches } = useStock();
     const { pagination, setPage, handleSearchChange } = usePagination();
     const { currentPage, itemsPerPage, search } = pagination;
+    const { isAdmin, isManager } = usePermission();
+    const isAdminOrManager = isAdmin || isManager;
 
     const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
+    const [sellerId, setSellerId] = useState<number | null>(null);
+
+    const fetchSellerOptions = useCallback(async () => {
+        try {
+            const sellers = await reportService.getSellers();
+            return { options: sellers.map((s) => ({ id: s.id, label: s.name })) };
+        } catch {
+            return { options: [], error: 'Error al cargar los vendedores' };
+        }
+    }, []);
 
     const loadBatches = useCallback(() => {
         fetchBatches({
             page: currentPage,
             page_size: itemsPerPage,
             search,
+            cashier_id: sellerId ?? undefined,
         });
-    }, [fetchBatches, currentPage, itemsPerPage, search]);
+    }, [fetchBatches, currentPage, itemsPerPage, search, sellerId]);
 
     useEffect(() => {
         loadBatches();
@@ -118,6 +135,22 @@ export const MovementList: React.FC = () => {
                             />
                         </div>
                     </div>
+
+                    {/* Vendor filter */}
+                    {isAdminOrManager && (
+                        <div className="flex items-center gap-2">
+                            <SelectFilter
+                                filterId="seller"
+                                placeholder="Vendedor"
+                                allLabel="Todos los vendedores"
+                                icon={User}
+                                ariaLabel="Filtrar por vendedor"
+                                selectedId={sellerId}
+                                onChange={setSellerId}
+                                fetchOptions={fetchSellerOptions}
+                            />
+                        </div>
+                    )}
 
                     {/* Table */}
                     <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
