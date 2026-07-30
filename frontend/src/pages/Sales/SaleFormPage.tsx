@@ -102,7 +102,7 @@ export const SaleFormPage: React.FC = () => {
     const { services, fetchServices } = useService();
     const { cashSessionId, cashSessionStatus } = useAuth();
     const { requireAuthorization, managerGateModal } = useManagerGate(
-        'Para aplicar descuentos o recargos superiores al 10% necesitas el código de autorización de un gerente o administrador.',
+        'Para aplicar descuentos o recargos superiores al 10% necesitas el código de autorización.',
     );
 
     const [showGlobalAdjustments, setShowGlobalAdjustments] = useState(false);
@@ -175,7 +175,8 @@ export const SaleFormPage: React.FC = () => {
         const submit = async (code?: string) => {
             const created = await addSale(code ? { ...payload, manager_code: code } : payload);
             if (created) {
-                window.open(`http://localhost:8000/api/sales/${created.id}/print/`, '_blank');
+                window.open(`/api/sales/${created.id}/print/`, '_blank');
+                navigate('/sales');
             }
         };
 
