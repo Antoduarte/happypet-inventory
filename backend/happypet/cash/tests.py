@@ -48,8 +48,9 @@ class CashSessionServiceTests(TestCase):
             user=self.user,
             opening_amount=Decimal("50.00"),
             status=CashSession.STATUS_OPEN,
-            opened_at=yesterday,
         )
+        CashSession.objects.filter(pk=old_session.pk).update(opened_at=yesterday)
+        old_session.refresh_from_db()
 
         new_session = CashSessionService.open_session(
             cash_register_id=self.register.pk,
@@ -275,13 +276,13 @@ class CashSessionActiveEndpointTests(TestCase):
         from rest_framework import status
 
         yesterday = timezone.now() - timedelta(days=1)
-        CashSession.objects.create(
+        old_session = CashSession.objects.create(
             cash_register=self.register,
             user=self.user,
             opening_amount=Decimal("100.00"),
             status=CashSession.STATUS_OPEN,
-            opened_at=yesterday,
         )
+        CashSession.objects.filter(pk=old_session.pk).update(opened_at=yesterday)
 
         client = APIClient()
         client.force_authenticate(user=self.user)
