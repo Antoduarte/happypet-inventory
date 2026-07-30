@@ -1,5 +1,5 @@
 import React from 'react';
-import { Receipt, CreditCard, Banknote, ArrowLeftRight } from 'lucide-react';
+import { Receipt, CreditCard, Banknote, ArrowLeftRight, Wallet } from 'lucide-react';
 import type { Sale } from '../../interfaces/sale';
 import { Card } from './Card';
 import { StatusBanner } from './StatusBanner';
@@ -25,6 +25,8 @@ export const SaleHeroCard: React.FC<SaleHeroCardProps> = ({ sale }) => {
                 return <CreditCard size={18} className="text-brand" />;
             case 'transfer':
                 return <ArrowLeftRight size={18} className="text-violet-600" />;
+            case 'credit':
+                return <Wallet size={18} className="text-amber-500" />;
             default:
                 return <CreditCard size={18} className="text-slate-400" />;
         }

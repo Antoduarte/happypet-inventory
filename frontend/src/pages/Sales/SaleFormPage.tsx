@@ -35,6 +35,7 @@ import {
     ArrowLeftRight,
     BadgeCheck,
     Printer,
+    Wallet,
 } from 'lucide-react';
 import { useState } from 'react';
 import { Controller } from 'react-hook-form';
@@ -80,6 +81,13 @@ const PAYMENT_OPTIONS = [
         icon: ArrowLeftRight,
         activeClass: 'border-violet-500 bg-violet-500 text-white shadow-md shadow-violet-200',
         iconClass: 'text-violet-200',
+    },
+    {
+        value: 'credit',
+        label: 'Crédito',
+        icon: Wallet,
+        activeClass: 'border-amber-500 bg-amber-500 text-white shadow-md shadow-amber-200',
+        iconClass: 'text-amber-100',
     },
 ] as const;
 

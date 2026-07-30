@@ -78,7 +78,7 @@ const saleItemSchema = z.discriminatedUnion('_kind', [productItemSchema, service
 
 /** Schema ra�z del formulario */
 export const saleFormSchema = z.object({
-    payment_type: z.enum(['cash', 'card', 'transfer']),
+    payment_type: z.enum(['cash', 'card', 'transfer', 'credit']),
     discount_percentage: z.coerce.number().default(0),
     surcharge_percentage: z.coerce.number().default(0),
     surcharge_reason: z.string().optional(),

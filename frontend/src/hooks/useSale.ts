@@ -203,10 +203,11 @@ export const useSale = () => {
         id: number,
         status: 'completed' | 'cancelled',
         managerCode?: string,
+        paymentType?: 'cash' | 'card' | 'transfer' | 'qr',
     ): Promise<Sale | null> => {
         setLoading(true);
         try {
-            const updated = await saleService.patchSaleStatus(id, status, managerCode);
+            const updated = await saleService.patchSaleStatus(id, status, managerCode, paymentType);
             setState((prev) => ({
                 ...prev,
                 sales: prev.sales.map((s) => (s.id === id ? updated : s)),

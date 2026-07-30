@@ -125,18 +125,28 @@ class SaleService {
      *
      * @param id - The ID of the sale to update.
      * @param status - The target status ('completed' or 'cancelled').
+     * @param managerCode - Optional manager authorization code.
+     * @param paymentType - Optional payment method to set when completing a credit sale.
      * @returns The updated sale record.
      * @throws {AppError} On validation error or network failure.
      *
      * @example
-     * const updated = await saleService.patchSaleStatus(5, 'completed');
+     * const updated = await saleService.patchSaleStatus(5, 'completed', 'MGR001', 'cash');
      */
     async patchSaleStatus(
         id: number,
         status: 'completed' | 'cancelled',
         managerCode?: string,
+        paymentType?: 'cash' | 'card' | 'transfer' | 'qr',
     ): Promise<Sale> {
-        return this.patchSale(id, managerCode ? { status, manager_code: managerCode } : { status });
+        const payload: PatchSalePayload = { status };
+        if (paymentType) {
+            payload.payment_type = paymentType;
+        }
+        if (managerCode) {
+            payload.manager_code = managerCode;
+        }
+        return this.patchSale(id, payload);
     }
 
     /**

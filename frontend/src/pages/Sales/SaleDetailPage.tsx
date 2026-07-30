@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Printer, X } from 'lucide-react';
+import { ArrowLeft, Printer, X, CheckCircle } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { SaleHeroCard } from '../../components/ui/SaleHeroCard';
@@ -8,6 +8,10 @@ import { FinancialSummaryCard } from '../../components/ui/FinancialSummaryCard';
 import { ServiceItemCard } from '../../components/ui/ServiceItemCard';
 import { ProductItemCard } from '../../components/ui/ProductItemCard';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import {
+    PaymentMethodDialog,
+    type CompletionPaymentMethod,
+} from '../../components/ui/PaymentMethodDialog';
 
 import { useSale } from '../../hooks/useSale';
 import { useManagerGate } from '../../hooks/useManagerGate';
@@ -81,6 +85,7 @@ export const SaleDetailPage: React.FC = () => {
     } = useSale();
     const { requireAuthorization, managerGateModal } = useManagerGate();
     const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+    const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
 
     const handleCancelSale = () => {
         if (!numericId) return;
@@ -88,6 +93,15 @@ export const SaleDetailPage: React.FC = () => {
         // Cancelar una venta requiere código de gerente para cajeros (una vez por sesión).
         requireAuthorization(async (code) => {
             await updateSaleStatus(numericId, 'cancelled', code);
+        });
+    };
+
+    const handleCompleteSale = (paymentType: CompletionPaymentMethod) => {
+        if (!numericId) return;
+        setIsPaymentDialogOpen(false);
+        // Completar una venta a crédito también requiere código de gerente para cajeros.
+        requireAuthorization(async (code) => {
+            await updateSaleStatus(numericId, 'completed', code, paymentType);
         });
     };
     const topRef = useRef<HTMLDivElement>(null);
@@ -258,6 +272,15 @@ export const SaleDetailPage: React.FC = () => {
                 ]}
                 action={
                     <div className="flex items-center gap-2">
+                        {sale.status === 'pending' && (
+                            <Button
+                                variant="primary"
+                                onClick={() => setIsPaymentDialogOpen(true)}
+                                className="gap-1.5"
+                            >
+                                <CheckCircle size={15} /> Completar Venta
+                            </Button>
+                        )}
                         {sale.status !== 'cancelled' && (
                             <Button
                                 variant="danger"
@@ -333,6 +356,19 @@ export const SaleDetailPage: React.FC = () => {
                 variant="danger"
                 onConfirm={handleCancelSale}
                 onCancel={() => setIsConfirmOpen(false)}
+            />
+
+            {/* Payment method selection for completing credit sales */}
+            <PaymentMethodDialog
+                key={isPaymentDialogOpen ? 'payment-dialog-open' : 'payment-dialog-closed'}
+                isOpen={isPaymentDialogOpen}
+                title="Completar Venta a Crédito"
+                message="Selecciona el método de pago con el que se completará esta venta. Si es efectivo, el dinero se agregará a la caja abierta."
+                confirmLabel="Confirmar Pago"
+                cancelLabel="Cancelar"
+                isLoading={isLoading}
+                onConfirm={handleCompleteSale}
+                onCancel={() => setIsPaymentDialogOpen(false)}
             />
 
             {/* Autorización de gerente (cajeros) */}

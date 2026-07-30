@@ -14,6 +14,7 @@ const PAYMENT_LABELS: Record<string, string> = {
     cash: 'Efectivo',
     card: 'Tarjeta',
     transfer: 'Transferencia',
+    credit: 'Crédito',
 };
 
 /** Maps backend status values to readable Spanish labels. */
