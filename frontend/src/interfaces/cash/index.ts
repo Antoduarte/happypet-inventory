@@ -61,6 +61,7 @@ export interface CashSession {
     suspended_at: string | null;
     movements: CashMovement[];
     sales?: Sale[];
+    is_today: boolean;
 }
 
 export interface ActiveSessionResponse {

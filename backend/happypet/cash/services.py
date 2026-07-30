@@ -1,3 +1,4 @@
+from datetime import timedelta
 from decimal import Decimal
 from typing import Optional
 
@@ -23,24 +24,27 @@ class CashSessionService:
 
         today = timezone.now().date()
 
-        old_session = (
-            CashSession.objects
-            .filter(
-                cash_register=register,
-                status=CashSession.STATUS_OPEN,
-            )
-            .exclude(opened_at__date=today)
-            .first()
+        today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        today_end = today_start + timedelta(days=1)
+
+        old_sessions = CashSession.objects.filter(
+            cash_register=register,
+        ).exclude(
+            status=CashSession.STATUS_CLOSED,
+        ).exclude(
+            opened_at__gte=today_start,
+            opened_at__lt=today_end,
         )
-        if old_session:
-            old_session.status = CashSession.STATUS_CLOSED
-            old_session.closed_at = timezone.now()
-            old_session.save()
+        for old in old_sessions:
+            old.status = CashSession.STATUS_CLOSED
+            old.closed_at = timezone.now()
+            old.save()
 
         if CashSession.objects.filter(
             cash_register=register,
             status=CashSession.STATUS_OPEN,
-            opened_at__date=today,
+            opened_at__gte=today_start,
+            opened_at__lt=today_end,
         ).exists():
             raise ValueError("There is already an open session for this cash register.")
 

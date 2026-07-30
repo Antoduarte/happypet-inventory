@@ -1,3 +1,4 @@
+from datetime import timedelta
 from django.utils import timezone
 from django.db import models
 from rest_framework import viewsets, status
@@ -207,11 +208,12 @@ class CashSessionViewSet(viewsets.ModelViewSet):
     def active(self, request):
         """Return today's open or suspended session for the current user, or null if none."""
         user = request.user
-        today = timezone.now().date()
+        today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        today_end = today_start + timedelta(days=1)
         session = (
             CashSession.objects
             .filter(user=user)
-            .filter(opened_at__date=today)
+            .filter(opened_at__gte=today_start, opened_at__lt=today_end)
             .filter(
                 models.Q(status=CashSession.STATUS_OPEN) |
                 models.Q(status=CashSession.STATUS_SUSPENDED)

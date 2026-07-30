@@ -1,5 +1,5 @@
 import React from 'react';
-import { DollarSign, CreditCard, Banknote, ArrowLeftRight } from 'lucide-react';
+import { DollarSign, CreditCard, Banknote, ArrowLeftRight, Wallet } from 'lucide-react';
 import { Card } from '../../../components/ui/Card';
 import type { Sale } from '../../../interfaces/sale';
 
@@ -7,6 +7,7 @@ const PAYMENT_ICONS: Record<string, React.FC<{ size?: number; className?: string
     cash: Banknote,
     card: CreditCard,
     transfer: ArrowLeftRight,
+    credit: Wallet,
 };
 
 interface SalesBreakdownProps {
@@ -17,8 +18,8 @@ export const SalesBreakdown: React.FC<SalesBreakdownProps> = ({ sales }) => {
     return (
         <Card>
             <p className="text-sm font-semibold text-slate-700 mb-4">Ventas por Método de Pago</p>
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                {['cash', 'card', 'transfer'].map((type) => {
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {['cash', 'card', 'transfer', 'credit'].map((type) => {
                     const typeSales = sales.filter(
                         (s) => s.payment_type === type && s.status !== 'cancelled',
                     );

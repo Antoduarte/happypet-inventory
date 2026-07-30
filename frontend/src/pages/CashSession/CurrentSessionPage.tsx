@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     DollarSign,
@@ -41,6 +41,13 @@ export const CurrentSessionPage: React.FC = () => {
 
     const canCloseSession = canCloseAnySession || session?.user === userId;
     const canAddMovement = canCloseAnySession || session?.user === userId;
+
+    useEffect(() => {
+        if (session && session.is_today === false) {
+            updateCashSession(null, null);
+            navigate('/cash/open', { replace: true });
+        }
+    }, [session, navigate, updateCashSession]);
 
     if (isLoading) {
         return (

@@ -1,3 +1,4 @@
+from datetime import timedelta
 from decimal import Decimal
 
 from django.db import models
@@ -139,12 +140,16 @@ class CashSessionOpenSerializer (serializers.Serializer):
         if not register.is_active:
             raise serializers.ValidationError("Cash register is not active.")
 
+        today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        today_end = today_start + timedelta(days=1)
         if CashSession.objects.filter(
             cash_register=register,
             status__in=[CashSession.STATUS_OPEN, CashSession.STATUS_SUSPENDED],
+            opened_at__gte=today_start,
+            opened_at__lt=today_end,
         ).exists():
             raise serializers.ValidationError(
-                "There is already an open or suspended session for this cash register."
+                "There is already an open or suspended session for this cash register today."
             )
         return value
 

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { PlayCircle } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
@@ -22,6 +22,13 @@ export const ResumeSessionPage: React.FC = () => {
         error,
     } = useSessionDetail(numericSessionId);
     const { mutate: resumeSession, isPending: isResumeLoading } = useResumeSession();
+
+    useEffect(() => {
+        if (session && session.is_today === false) {
+            updateCashSession(null, null);
+            navigate('/cash/open', { replace: true });
+        }
+    }, [session, navigate, updateCashSession]);
 
     const handleResume = () => {
         if (!numericSessionId) return;
