@@ -18,11 +18,9 @@ import { UserList } from '../pages/User/UserList';
 import { UserFormPage } from '../pages/User/UserFormPage';
 import { ReportsPage } from '../pages/Reports/ReportsPage';
 import { PrivateRoute } from '../components/auth/PrivateRoute';
-// import { RoleGuard } from '../components/auth/RoleGuard';
 import { OpenSessionPage } from '../pages/CashSession/OpenSessionPage';
 import { ResumeSessionPage } from '../pages/CashSession/ResumeSessionPage';
 import { CurrentSessionPage } from '../pages/CashSession/CurrentSessionPage';
-// import { SessionReportPage } from '../pages/CashSession/SessionReportPage';
 import { RoleGuard } from '@/components/auth/RoleGuard';
 
 export const AppRoutes = () => {
@@ -88,7 +86,6 @@ export const AppRoutes = () => {
                     />
 
                     <Route path="cash-session/:sessionId" element={<CurrentSessionPage />} />
-                    {/* <Route path="cash-session/:sessionId/report" element={<SessionReportPage />} /> */}
 
                     {/* Fallback route */}
                     <Route path="*" element={<Navigate to="/login" replace />} />

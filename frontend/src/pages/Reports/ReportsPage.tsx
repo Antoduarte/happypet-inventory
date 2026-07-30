@@ -133,11 +133,7 @@ export const ReportsPage: React.FC = () => {
                 breadcrumbs={[{ label: 'Panel', path: '/' }, { label: 'Reportes' }]}
             />
 
-            {isCashier ? (
-                <p className="text-sm text-slate-500">
-                    Mostrando las ventas de hoy de tus sesiones de caja.
-                </p>
-            ) : (
+            {!isCashier && (
                 <PeriodFilterBar
                     preset={preset}
                     onPresetChange={setPreset}
