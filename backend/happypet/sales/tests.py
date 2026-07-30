@@ -781,6 +781,38 @@ class SaleListRoleFilterTests(APITestCase):
             format="json",
         )
         self.assertEqual(response.status_code, 201)
+        sale = Sale.objects.latest("id")
+        self.assertEqual(sale.cash_session, self.session_a)
         batch = MovementBatch.objects.latest("created_at")
         self.assertEqual(batch.created_by, self.cashier_a)
+
+    def test_sale_creation_assigns_cash_session(self):
+        """The Sale object must store the cash session used at creation."""
+        category = Category.objects.create(name="Test Cat", type="product")
+        product = Product.objects.create(
+            name="Test Product",
+            category=category,
+            stock=Decimal("10.0000"),
+            base_unit="u",
+        )
+        self.client.force_authenticate(user=self.cashier_a)
+        response = self.client.post(
+            "/api/sales/",
+            {
+                "payment_type": PAYMENT_CASH,
+                "cash_session_id": self.session_a.id,
+                "items": [
+                    {
+                        "product_id": product.id,
+                        "type": SALE_ITEM_PRODUCT,
+                        "quantity": 1,
+                        "price_per_item": "10.00",
+                    }
+                ],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        sale = Sale.objects.latest("id")
+        self.assertEqual(sale.cash_session, self.session_a)
 

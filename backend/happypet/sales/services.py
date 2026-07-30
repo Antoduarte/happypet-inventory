@@ -73,6 +73,7 @@ class SaleService:
             discount_percentage=validated_data.get("discount_percentage", 0),
             surcharge_percentage=validated_data.get("surcharge_percentage", 0),
             surcharge_reason=validated_data.get("surcharge_reason") or None,
+            cash_session=cash_session,
         )
 
         # 2. Procesar ítems → calcular totales y descontar stock
