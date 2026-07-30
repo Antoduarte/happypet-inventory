@@ -7,6 +7,7 @@ from rest_framework.test import APITestCase
 
 from happypet.cash.models import CashRegister, CashSession
 from happypet.products.constants import (
+    MOVEMENT_IN,
     PAYMENT_CARD,
     PAYMENT_CASH,
     PAYMENT_CREDIT,
@@ -16,6 +17,7 @@ from happypet.products.constants import (
     SALE_ITEM_PRODUCT,
     SALE_ITEM_SERVICE,
 )
+from happypet.products.models import MovementBatch
 from happypet.sales.models import Sale, SaleItem
 from happypet.services.models import Service
 
@@ -272,13 +274,37 @@ class SellerListViewTests(APITestCase):
         names = {row["name"] for row in res.json()}
         self.assertEqual(names, {"Ana"})
 
-    def test_user_with_only_cancelled_sales_not_listed(self):
+    def test_user_with_cancelled_sale_is_listed(self):
+        """Cancelled sales also count — the user has made transactions."""
         self._make_sale(self.cashier_a, status=SAILE_STATUS_CANCELLED)
 
         self.client.force_authenticate(self.admin)
         res = self.client.get(SELLERS_URL)
 
-        self.assertEqual(res.json(), [])
+        names = {row["name"] for row in res.json()}
+        self.assertEqual(names, {"Ana"})
+
+    def test_user_with_pending_sale_is_listed(self):
+        """Pending sales count too."""
+        self._make_sale(self.cashier_a, status=SAILE_STATUS_PENDING)
+
+        self.client.force_authenticate(self.admin)
+        res = self.client.get(SELLERS_URL)
+
+        names = {row["name"] for row in res.json()}
+        self.assertEqual(names, {"Ana"})
+
+    def test_user_with_only_movements_is_listed(self):
+        """A user who made manual stock movements but no sales is still listed."""
+        MovementBatch.objects.create(
+            movement_type=MOVEMENT_IN,
+            created_by=self.cashier_a,
+        )
+        self.client.force_authenticate(self.admin)
+        res = self.client.get(SELLERS_URL)
+
+        names = {row["name"] for row in res.json()}
+        self.assertEqual(names, {"Ana"})
 
     def test_manager_gets_sellers(self):
         self._make_sale(self.cashier_a)

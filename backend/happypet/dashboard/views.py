@@ -2,7 +2,7 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
-from django.db.models import Count, Sum
+from django.db.models import Count, Q, Sum
 from django.db.models.functions import TruncDay, TruncMonth, TruncWeek
 from rest_framework import filters, generics
 from rest_framework.permissions import IsAuthenticated
@@ -274,7 +274,10 @@ class SellerListView(APIView):
 
     def get(self, request):
         sellers = (
-            User.objects.filter(cash_sessions__sales__status=SAILE_STATUS_COMPLETED)
+            User.objects.filter(
+                Q(cash_sessions__sales__isnull=False)
+                | Q(movement_batches__isnull=False)
+            )
             .distinct()
             .order_by('name')
             .values('id', 'name', 'email')
