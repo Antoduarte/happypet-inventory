@@ -50,7 +50,7 @@ class SaleService:
     """
 
     @transaction.atomic
-    def create_sale(self, validated_data: dict) -> Sale:
+    def create_sale(self, validated_data: dict, cash_session=None) -> Sale:
         """Crea una venta completa dentro de una transacción atómica."""
 
         items_data: list[dict] = validated_data.pop("items")
@@ -64,6 +64,7 @@ class SaleService:
             batch = MovementBatch.objects.create(
                 movement_type=MOVEMENT_OUT,
                 notes="Venta en proceso",
+                created_by=cash_session.user if cash_session else None,
             )
 
         # 1. Construir cabecera sin guardar
@@ -363,6 +364,7 @@ class SaleStatusService:
             revert_batch = MovementBatch.objects.create(
                 movement_type=MOVEMENT_IN,
                 notes=f"Reversión venta cancelada #{sale.pk}",
+                created_by=user,
             )
 
         for item in product_items:

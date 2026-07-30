@@ -673,3 +673,114 @@ class ProductRoleCoherenceTests(TestCase):
         self.assertTrue(self._item(self.both, is_supply=False).is_valid())
         self.assertTrue(self._item(self.both, is_supply=True).is_valid())
 
+
+# ──────────────────────────────────────────────────────────────────────────────
+# SaleViewSet role-based list filtering tests
+# ──────────────────────────────────────────────────────────────────────────────
+
+class SaleListRoleFilterTests(APITestCase):
+    """Integration tests for GET /api/sales/ role-based filtering."""
+
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            email="admin@test.com", password="testpass", role="admin"
+        )
+        self.manager = User.objects.create_user(
+            email="manager@test.com", password="testpass", role="manager"
+        )
+        self.cashier_a = User.objects.create_user(
+            email="ana@test.com", password="testpass", role="cashier"
+        )
+        self.cashier_b = User.objects.create_user(
+            email="beto@test.com", password="testpass", role="cashier"
+        )
+
+        self.register = CashRegister.objects.create(name="Caja Principal")
+        self.session_a = CashSession.objects.create(
+            cash_register=self.register,
+            user=self.cashier_a,
+            opening_amount=Decimal("100.00"),
+            status=CashSession.STATUS_OPEN,
+        )
+        self.session_b = CashSession.objects.create(
+            cash_register=self.register,
+            user=self.cashier_b,
+            opening_amount=Decimal("100.00"),
+            status=CashSession.STATUS_OPEN,
+        )
+
+        self.sale_a = Sale.objects.create(
+            status=SAILE_STATUS_PENDING,
+            payment_type=PAYMENT_CASH,
+            total_price=Decimal("50.00"),
+            subtotal=Decimal("50.00"),
+            quantity=1,
+            cash_session=self.session_a,
+        )
+        self.sale_b = Sale.objects.create(
+            status=SAILE_STATUS_PENDING,
+            payment_type=PAYMENT_CASH,
+            total_price=Decimal("75.00"),
+            subtotal=Decimal("75.00"),
+            quantity=1,
+            cash_session=self.session_b,
+        )
+
+    def test_admin_sees_all_sales(self):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get("/api/sales/")
+        self.assertEqual(response.status_code, 200)
+        ids = {row["id"] for row in response.json()["results"]}
+        self.assertEqual(ids, {self.sale_a.id, self.sale_b.id})
+
+    def test_manager_sees_all_sales(self):
+        self.client.force_authenticate(user=self.manager)
+        response = self.client.get("/api/sales/")
+        self.assertEqual(response.status_code, 200)
+        ids = {row["id"] for row in response.json()["results"]}
+        self.assertEqual(ids, {self.sale_a.id, self.sale_b.id})
+
+    def test_cashier_sees_only_own_sales(self):
+        self.client.force_authenticate(user=self.cashier_a)
+        response = self.client.get("/api/sales/")
+        self.assertEqual(response.status_code, 200)
+        ids = {row["id"] for row in response.json()["results"]}
+        self.assertEqual(ids, {self.sale_a.id})
+
+    def test_cashier_can_retrieve_other_sale_by_id(self):
+        """A cashier should be able to look up any sale by ID for returns/ticket lookup."""
+        self.client.force_authenticate(user=self.cashier_a)
+        response = self.client.get(f"/api/sales/{self.sale_b.id}/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["id"], self.sale_b.id)
+
+    def test_cashier_created_movement_batch_on_sale(self):
+        """Creating a sale via API should assign the movement batch to the cashier."""
+        category = Category.objects.create(name="Test Cat", type="product")
+        product = Product.objects.create(
+            name="Test Product",
+            category=category,
+            stock=Decimal("10.0000"),
+            base_unit="u",
+        )
+        self.client.force_authenticate(user=self.cashier_a)
+        response = self.client.post(
+            "/api/sales/",
+            {
+                "payment_type": PAYMENT_CASH,
+                "cash_session_id": self.session_a.id,
+                "items": [
+                    {
+                        "product_id": product.id,
+                        "type": SALE_ITEM_PRODUCT,
+                        "quantity": 1,
+                        "price_per_item": "10.00",
+                    }
+                ],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        batch = MovementBatch.objects.latest("created_at")
+        self.assertEqual(batch.created_by, self.cashier_a)
+

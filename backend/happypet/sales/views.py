@@ -48,6 +48,17 @@ class SaleViewSet(viewsets.ModelViewSet):
     ordering_fields = ["sale_date", "total_price", "quantity"]
     ordering = ["-sale_date"]
 
+    def get_queryset(self):
+        """
+        Cashiers only see their own sales in the list. Admin and manager see all.
+        Retrieve (detail by ID) intentionally uses the unfiltered queryset so any
+        authenticated user can look up a specific sale by ticket number.
+        """
+        user = self.request.user
+        if user and getattr(user, "role", None) == "cashier" and self.action == "list":
+            return self.queryset.filter(cash_session__user=user)
+        return self.queryset
+
     def get_permissions(self):
         """Require CanTransitionSale for partial_update (status transitions)."""
         if self.action == "partial_update":

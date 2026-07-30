@@ -245,10 +245,7 @@ class SaleCreateSerializer(serializers.Serializer):
                 cash_session = active
         try:
             service = SaleService()
-            sale = service.create_sale(validated_data)
-            if cash_session:
-                sale.cash_session = cash_session
-                sale.save(update_fields=["cash_session"])
+            sale = service.create_sale(validated_data, cash_session=cash_session)
 
             # Credit sales stay pending until completed manually from the detail view.
             if sale.payment_type != PAYMENT_CREDIT:
