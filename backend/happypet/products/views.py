@@ -145,6 +145,13 @@ class InventoryMovementViewSet(viewsets.ReadOnlyModelViewSet):
     ordering_fields = ["movement_date", "quantity", "product__name"]
     ordering = ["-movement_date"]
 
+    def get_queryset(self):
+        """Cashiers only see inventory movements from batches they created."""
+        user = self.request.user
+        if user and getattr(user, "role", None) == "cashier":
+            return self.queryset.filter(batch__created_by=user)
+        return self.queryset
+
 
 class MovementBatchViewSet(viewsets.ModelViewSet):
     """
@@ -179,6 +186,13 @@ class MovementBatchViewSet(viewsets.ModelViewSet):
     ordering = ["-created_at"]
 
     http_method_names = ["get", "post", "head", "options"]
+
+    def get_queryset(self):
+        """Cashiers only see movement batches they created. Admin/manager see all."""
+        user = self.request.user
+        if user and getattr(user, "role", None) == "cashier":
+            return self.queryset.filter(created_by=user)
+        return self.queryset
 
     def create(self, request, *args, **kwargs):
         auth_error = check_manager_authorization(request)

@@ -1,4 +1,5 @@
 from decimal import Decimal
+from django.conf import settings
 from django.db import models
 from .constants import CATEGORY_TYPE_CHOICES, MOVEMENT_TYPE_CHOICES, MOVEMENT_IN, BASE_UNIT_CHOICES
 
@@ -132,6 +133,13 @@ class MovementBatch(models.Model):
         max_length=3, choices=MOVEMENT_TYPE_CHOICES, default=MOVEMENT_IN
     )
     notes = models.TextField(blank=True, null=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="movement_batches",
+        null=True,
+        blank=True,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
