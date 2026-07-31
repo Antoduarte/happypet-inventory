@@ -18,6 +18,36 @@ export class AppError extends Error {
     }
 
     /**
+     * Extrae un mensaje legible del body de un error DRF/Axios.
+     * Prioriza "detail", "message" o "error", luego errores por campo,
+     * y por último strings planos.
+     */
+    private static extractDetail(data: unknown): string | null {
+        if (typeof data === 'string' && data.trim()) return data;
+
+        if (data && typeof data === 'object') {
+            const record = data as Record<string, unknown>;
+            for (const key of ['detail', 'message', 'error']) {
+                const value = record[key];
+                if (typeof value === 'string' && value.trim()) return value;
+            }
+
+            const fieldErrors: string[] = [];
+            for (const [field, value] of Object.entries(record)) {
+                if (field === 'non_field_errors') {
+                    fieldErrors.push(...(Array.isArray(value) ? value : [value]).map(String));
+                    continue;
+                }
+                const messages = Array.isArray(value) ? value : [value];
+                fieldErrors.push(`${field}: ${messages.map(String).join(', ')}`);
+            }
+            if (fieldErrors.length > 0) return fieldErrors.join('\n');
+        }
+
+        return null;
+    }
+
+    /**
      * Fábrica estática: convierte cualquier error desconocido en un AppError
      * con un mensaje legible por el usuario.
      */
@@ -26,6 +56,10 @@ export class AppError extends Error {
 
         if (axios.isAxiosError(error)) {
             const status = error.response?.status;
+            const detail = error.response ? this.extractDetail(error.response.data) : null;
+            if (detail) {
+                return new AppError(detail, status);
+            }
 
             const httpMessages: Record<number, string> = {
                 400: 'Los datos enviados no son válidos.',

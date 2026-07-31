@@ -14,6 +14,7 @@ import { userService, type User } from '../../services/user';
 import { useAuth } from '../../hooks/useAuth';
 import { userSchema, type UserFormData } from '../../schemas/user';
 import { generateCode } from '../../utils/user';
+import { getErrorMessage } from '../../utils/error';
 import {
     AlertCircle,
     Save,
@@ -133,8 +134,8 @@ export const UserFormPage: React.FC = () => {
                     });
                 }
                 goToUsers();
-            } catch {
-                setFormError('Ocurrió un error al procesar la solicitud.');
+            } catch (error) {
+                setFormError(getErrorMessage(error, 'Ocurrió un error al procesar la solicitud.'));
             }
         },
         [addUser, goToUsers, id, isEditing, updateUser],
