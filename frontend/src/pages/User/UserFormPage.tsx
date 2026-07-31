@@ -1,8 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
@@ -11,38 +10,11 @@ import { TogglePills } from '../../components/ui/TogglePills';
 import { QuickActionsSidebar } from '../../components/ui/QuickActionsSidebar';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { useUsers } from './useUsers';
-import { userService } from '../../services/user';
+import { userService, type User } from '../../services/user';
 import { useAuth } from '../../hooks/useAuth';
+import { userSchema, type UserFormData } from '../../schemas/user';
+import { generateCode } from '../../utils/user';
 import { AlertCircle, Save, X, User, Lock, ShieldCheck, RefreshCw, Trash2 } from 'lucide-react';
-
-const userSchema = z
-    .object({
-        name: z.string().min(1, 'El nombre es requerido'),
-        email: z.string().email('Debe ser un correo electrónico válido'),
-        password: z.string().optional().or(z.literal('')),
-        password_confirm: z.string().optional().or(z.literal('')),
-        role: z.enum(['admin', 'manager', 'cashier']),
-        code: z.string().max(6).optional().or(z.literal('')),
-        is_active: z.boolean(),
-    })
-    .refine(
-        (data) => {
-            if (data.password || data.password_confirm) {
-                return data.password === data.password_confirm;
-            }
-            return true;
-        },
-        {
-            message: 'Las contraseñas no coinciden',
-            path: ['password_confirm'],
-        },
-    );
-
-type UserFormData = z.infer<typeof userSchema>;
-
-const generateCode = () => {
-    return Math.random().toString(36).substring(2, 8).toUpperCase();
-};
 
 const ROLE_OPTIONS = [
     { value: 'cashier', label: 'Cajero' },
@@ -63,13 +35,7 @@ export const UserFormPage: React.FC = () => {
     const [formError, setFormError] = useState<string | null>(null);
     const [showConfirmDelete, setShowConfirmDelete] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
-    const [userData, setUserData] = useState<{
-        name: string;
-        email: string;
-        role: string;
-        is_active: boolean;
-        code?: string;
-    } | null>(null);
+    const [userData, setUserData] = useState<User | null>(null);
     const isEditing = Boolean(id);
 
     const {
@@ -95,7 +61,6 @@ export const UserFormPage: React.FC = () => {
     const selectedRole = useWatch({ control, name: 'role' });
     const isAdminOrManager = selectedRole === 'admin' || selectedRole === 'manager';
     const isCurrentUserAdmin = currentUser?.role === 'admin';
-    console.log(currentUser);
 
     useEffect(() => {
         fetchUsers();
@@ -105,13 +70,7 @@ export const UserFormPage: React.FC = () => {
         if (isEditing && id) {
             userService.getUserById(parseInt(id, 10)).then((user) => {
                 if (user) {
-                    setUserData({
-                        name: user.name,
-                        email: user.email,
-                        role: user.role,
-                        is_active: user.is_active,
-                        code: user.code,
-                    });
+                    setUserData(user);
                 }
             });
         }
@@ -122,7 +81,7 @@ export const UserFormPage: React.FC = () => {
             reset({
                 name: userData.name,
                 email: userData.email,
-                role: userData.role as 'admin' | 'manager' | 'cashier',
+                role: userData.role,
                 is_active: userData.is_active,
                 password: '',
                 password_confirm: '',
@@ -133,54 +92,57 @@ export const UserFormPage: React.FC = () => {
 
     const isFormLoading = isSubmitting || isLoading;
 
-    const onSubmit = async (data: UserFormData) => {
-        setFormError(null);
-        try {
-            if (isEditing) {
-                const updatePayload: Record<string, unknown> = {
-                    name: data.name,
-                    role: data.role,
-                    is_active: data.is_active,
-                    code: data.code,
-                };
-                if (data.password) {
-                    updatePayload.password = data.password;
+    const goToUsers = useCallback(() => navigate('/users'), [navigate]);
+
+    const onSubmit = useCallback(
+        async (data: UserFormData) => {
+            setFormError(null);
+            try {
+                if (isEditing) {
+                    const updatePayload: Record<string, unknown> = {
+                        name: data.name,
+                        role: data.role,
+                        is_active: data.is_active,
+                        code: data.code,
+                    };
+                    if (data.password) {
+                        updatePayload.password = data.password;
+                    }
+                    await updateUser(id!, updatePayload);
+                } else {
+                    if (!data.password) {
+                        setFormError('La contraseña es requerida al crear un usuario');
+                        return;
+                    }
+                    await addUser({
+                        email: data.email,
+                        name: data.name,
+                        password: data.password,
+                        role: data.role,
+                        is_active: data.is_active,
+                        code: data.code || undefined,
+                    });
                 }
-                await updateUser(id!, updatePayload);
-            } else {
-                if (!data.password) {
-                    setFormError('La contraseña es requerida al crear un usuario');
-                    return;
-                }
-                await addUser({
-                    email: data.email,
-                    name: data.name,
-                    password: data.password,
-                    role: data.role,
-                    is_active: data.is_active,
-                    code: data.code || undefined,
-                });
+                goToUsers();
+            } catch {
+                setFormError('Ocurrió un error al procesar la solicitud.');
             }
-            navigate('/users');
-        } catch {
-            setFormError('Ocurrió un error al procesar la solicitud.');
-        }
-    };
+        },
+        [addUser, goToUsers, id, isEditing, updateUser],
+    );
 
-    const goToUsers = () => navigate('/users');
-    const handleGenarateCode = () =>
-        setValue('code', generateCode(), {
-            shouldValidate: true,
-        });
+    const handleGenerateCode = useCallback(() => {
+        setValue('code', generateCode(), { shouldValidate: true });
+    }, [setValue]);
 
-    const handleConfirmDelete = async () => {
+    const handleConfirmDelete = useCallback(async () => {
         if (!id) return;
         setIsDeleting(true);
         await deleteUser(id);
         setIsDeleting(false);
         setShowConfirmDelete(false);
         goToUsers();
-    };
+    }, [deleteUser, goToUsers, id]);
 
     const sidebarActions = useMemo(
         () => [
@@ -215,7 +177,7 @@ export const UserFormPage: React.FC = () => {
                 onClick: () => setShowConfirmDelete(true),
             },
         ],
-        [isEditing, isFormLoading, isDeleting],
+        [isEditing, isFormLoading, isDeleting, goToUsers, handleSubmit, onSubmit],
     );
 
     return (
@@ -321,7 +283,7 @@ export const UserFormPage: React.FC = () => {
 
                                             <button
                                                 type="button"
-                                                onClick={handleGenarateCode}
+                                                onClick={handleGenerateCode}
                                                 className="absolute right-3 top-[34px] text-slate-500 hover:text-slate-600 p-1"
                                                 title="Generar código"
                                             >
