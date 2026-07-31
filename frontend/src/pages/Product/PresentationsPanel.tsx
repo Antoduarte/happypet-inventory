@@ -9,7 +9,7 @@
 
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Pencil, Layers, Barcode, CheckCircle2, XCircle } from 'lucide-react';
+import { Plus, Pencil, Layers, CheckCircle2, XCircle } from 'lucide-react';
 import type { ProductPresentation } from '../../interfaces/product';
 import { BASE_UNIT_LABELS } from '../../schemas/product';
 
@@ -114,12 +114,6 @@ export const PresentationsPanel: React.FC<PresentationsPanelProps> = ({
                                     <span className="text-[11px] font-semibold text-slate-700">
                                         ${parseFloat(p.price).toFixed(2)}
                                     </span>
-                                    {p.barcode && (
-                                        <span className="inline-flex items-center gap-1 text-[11px] text-slate-400">
-                                            <Barcode size={10} />
-                                            {p.barcode}
-                                        </span>
-                                    )}
                                 </div>
                             </div>
 

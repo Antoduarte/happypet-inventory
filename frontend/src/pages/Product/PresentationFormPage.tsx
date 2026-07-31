@@ -14,7 +14,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Save, Trash2, Layers, Hash, ToggleLeft, ArrowLeft, Info } from 'lucide-react';
+import { Save, Trash2, Layers, Hash, ToggleLeft, ArrowLeft } from 'lucide-react';
 
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Card } from '../../components/ui/Card';
@@ -37,7 +37,6 @@ const presentationSchema = z.object({
     price: z.coerce
         .number({ message: 'El precio debe ser un número' })
         .min(0, 'El precio no puede ser negativo'),
-    barcode: z.string().optional().or(z.literal('')),
     is_active: z.boolean().default(true),
 });
 
@@ -89,7 +88,6 @@ export const PresentationFormPage: React.FC = () => {
             name: '',
             multiplier: 1,
             price: 0,
-            barcode: '',
             is_active: true,
         },
     });
@@ -118,7 +116,6 @@ export const PresentationFormPage: React.FC = () => {
                     name: p.name,
                     multiplier: parseFloat(p.multiplier),
                     price: parseFloat(p.price),
-                    barcode: p.barcode ?? '',
                     is_active: p.is_active,
                 });
             })
@@ -136,7 +133,6 @@ export const PresentationFormPage: React.FC = () => {
             name: data.name,
             multiplier: data.multiplier,
             price: data.price,
-            barcode: data.barcode || null,
             is_active: data.is_active,
         };
 
@@ -219,26 +215,12 @@ export const PresentationFormPage: React.FC = () => {
                 <div className="flex gap-6 items-start">
                     {/* ── Main Form ── */}
                     <div className="flex-1 min-w-0">
-                        {/* Context banner */}
-                        <div className="mb-4 p-4 bg-brand/5 border border-brand/20 rounded-xl flex items-start gap-3">
-                            <Info size={16} className="text-brand shrink-0 mt-0.5" />
-                            <div className="text-sm text-slate-600">
-                                <span className="font-semibold text-brand">Unidad base: </span>
-                                <span className="font-medium">{baseUnit}</span>
-                                {' — '}
-                                El campo <strong>Multiplicador</strong> define cuántas{' '}
-                                <em>{baseUnit}</em> contiene esta presentación.
-                                {' ej: Saco de 100 lb → multiplicador = '}
-                                <strong>100</strong>
-                            </div>
-                        </div>
-
                         <Card>
                             <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-8">
                                 {/* ─ Identidad ─ */}
                                 <FormSection
                                     title="Identidad de la presentación"
-                                    description="Nombre visible y código de barras"
+                                    description="Nombre visible de la presentación"
                                     icon={Layers}
                                     iconBg="bg-brand/10"
                                     iconColor="text-brand"
@@ -249,12 +231,6 @@ export const PresentationFormPage: React.FC = () => {
                                         {...register('name')}
                                         error={errors.name?.message}
                                         required
-                                    />
-                                    <Input
-                                        label="Código de barras"
-                                        placeholder="EAN-13 / UPC (opcional)"
-                                        {...register('barcode')}
-                                        error={errors.barcode?.message}
                                     />
                                 </FormSection>
 
