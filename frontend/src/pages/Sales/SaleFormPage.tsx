@@ -102,7 +102,7 @@ export const SaleFormPage: React.FC = () => {
     const { services, fetchServices } = useService();
     const { cashSessionId, cashSessionStatus } = useAuth();
     const { requireAuthorization, managerGateModal } = useManagerGate(
-        'Para aplicar descuentos o recargos superiores al 10% necesitas el código de autorización.',
+        'Para ventas a crédito, descuentos o recargos superiores al 10% necesitas el código de autorización.',
     );
 
     const [showGlobalAdjustments, setShowGlobalAdjustments] = useState(false);
@@ -142,12 +142,13 @@ export const SaleFormPage: React.FC = () => {
 
     // ── Submit ─────────────────────────────────────────────────────────────────
 
-    function needsDiscountAuth(payload: ReturnType<typeof buildPayload>): boolean {
+    function needsAuthorization(payload: ReturnType<typeof buildPayload>): boolean {
         const itemHasAuth = (item: {
             discount_percentage?: number;
             surcharge_percentage?: number;
         }) => (item.discount_percentage ?? 0) > 10 || (item.surcharge_percentage ?? 0) > 10;
         return (
+            payload.payment_type === 'credit' ||
             (payload.discount_percentage ?? 0) > 10 ||
             (payload.surcharge_percentage ?? 0) > 10 ||
             payload.items.some(itemHasAuth)
@@ -162,7 +163,7 @@ export const SaleFormPage: React.FC = () => {
             if (created) navigate('/sales');
         };
 
-        if (needsDiscountAuth(payload)) {
+        if (needsAuthorization(payload)) {
             requireAuthorization(submit);
         } else {
             void submit();
@@ -180,7 +181,7 @@ export const SaleFormPage: React.FC = () => {
             }
         };
 
-        if (needsDiscountAuth(payload)) {
+        if (needsAuthorization(payload)) {
             requireAuthorization(submit);
         } else {
             void submit();

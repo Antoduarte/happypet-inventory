@@ -206,15 +206,17 @@ class SaleCreateSerializer(serializers.Serializer):
                 )
             data["cash_session"] = session
 
-        # ── Autorización gerente para desc/rec > 10% ──────────────
+        # ── Autorización gerente para crédito / desc/rec > 10% ────
         request = self.context.get("request")
         if request and getattr(request.user, "is_cashier", False):
             def _needs_auth(v):
                 return v.get("discount_percentage", 0) > 10 or v.get("surcharge_percentage", 0) > 10
 
             needs_auth = (
-                discount > 10 or surcharge > 10
+                discount > 10
+                or surcharge > 10
                 or any(_needs_auth(item) for item in data.get("items", []))
+                or data.get("payment_type") == PAYMENT_CREDIT
             )
             if needs_auth:
                 code = data.get("manager_code", "")
@@ -222,7 +224,7 @@ class SaleCreateSerializer(serializers.Serializer):
                     code=code, role__in=[ROLE_ADMIN, ROLE_MANAGER], is_active=True
                 ).exists():
                     raise serializers.ValidationError(
-                        {"manager_code": "Se requiere código de autorización del gerente para descuentos o recargos superiores al 10%."}
+                        {"manager_code": "Se requiere código de autorización del gerente para ventas a crédito, descuentos o recargos superiores al 10%."}
                     )
 
         data.pop("manager_code", None)

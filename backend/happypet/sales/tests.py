@@ -10,6 +10,7 @@ from happypet.cash.models import CashRegister, CashSession
 from happypet.products.constants import (
     SAILE_STATUS_PENDING,
     PAYMENT_CASH,
+    PAYMENT_CREDIT,
     SALE_ITEM_PRODUCT,
 )
 
@@ -815,4 +816,76 @@ class SaleListRoleFilterTests(APITestCase):
         self.assertEqual(response.status_code, 201)
         sale = Sale.objects.latest("id")
         self.assertEqual(sale.cash_session, self.session_a)
+
+
+class CashierCreditSaleAuthorizationTests(APITestCase):
+    """Cashiers need a manager/admin code to create credit sales."""
+
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            email="admin@test.com",
+            password="testpass",
+            role="admin",
+            name="Admin",
+            code="111111",
+        )
+        self.cashier = User.objects.create_user(
+            email="cashier@test.com", password="testpass", role="cashier"
+        )
+        self.category = Category.objects.create(name="Test Cat", type="product")
+        self.product = Product.objects.create(
+            name="Test Product",
+            category=self.category,
+            stock=Decimal("10.0000"),
+            base_unit="u",
+        )
+        self.register = CashRegister.objects.create(name="Caja Principal")
+        self.session = CashSession.objects.create(
+            cash_register=self.register,
+            user=self.cashier,
+            opening_amount=Decimal("100.00"),
+            status=CashSession.STATUS_OPEN,
+        )
+
+    def _payload(self, **overrides):
+        payload = {
+            "payment_type": PAYMENT_CREDIT,
+            "cash_session_id": self.session.id,
+            "items": [
+                {
+                    "product_id": self.product.id,
+                    "type": SALE_ITEM_PRODUCT,
+                    "quantity": 1,
+                    "price_per_item": "10.00",
+                }
+            ],
+        }
+        payload.update(overrides)
+        return payload
+
+    def test_cashier_credit_sale_without_code_rejected(self):
+        self.client.force_authenticate(user=self.cashier)
+        response = self.client.post("/api/sales/", self._payload(), format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("manager_code", response.json())
+
+    def test_cashier_credit_sale_with_valid_code_created(self):
+        self.client.force_authenticate(user=self.cashier)
+        response = self.client.post(
+            "/api/sales/", self._payload(manager_code="111111"), format="json"
+        )
+        self.assertEqual(response.status_code, 201)
+
+    def test_cashier_credit_sale_with_invalid_code_rejected(self):
+        self.client.force_authenticate(user=self.cashier)
+        response = self.client.post(
+            "/api/sales/", self._payload(manager_code="999999"), format="json"
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("manager_code", response.json())
+
+    def test_admin_credit_sale_without_code_created(self):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.post("/api/sales/", self._payload(), format="json")
+        self.assertEqual(response.status_code, 201)
 
