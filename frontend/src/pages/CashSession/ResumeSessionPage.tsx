@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { PlayCircle } from 'lucide-react';
+import { ArrowLeft, PlayCircle } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { useSessionDetail, useResumeSession } from '../../hooks/cash';
@@ -161,6 +161,16 @@ export const ResumeSessionPage: React.FC = () => {
                     >
                         <PlayCircle size={20} />
                         Reanudar Sesión
+                    </Button>
+
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        className="w-full justify-center gap-2"
+                        onClick={() => navigate('/')}
+                    >
+                        <ArrowLeft size={15} />
+                        Volver al Panel
                     </Button>
                 </div>
             </div>

@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { DollarSign } from 'lucide-react';
+import { ArrowLeft, DollarSign } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { useOpenSession } from '../../hooks/cash';
 import { useAuth } from '../../hooks/useAuth';
@@ -102,6 +102,18 @@ export const OpenSessionPage: React.FC = () => {
                             </Button>
                         </div>
                     </form>
+                </div>
+
+                <div className="mt-4 flex justify-center">
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => navigate('/')}
+                        className="gap-2"
+                    >
+                        <ArrowLeft size={15} />
+                        Volver al Panel
+                    </Button>
                 </div>
             </div>
         </div>
