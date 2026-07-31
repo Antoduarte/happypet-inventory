@@ -14,7 +14,16 @@ import { userService, type User } from '../../services/user';
 import { useAuth } from '../../hooks/useAuth';
 import { userSchema, type UserFormData } from '../../schemas/user';
 import { generateCode } from '../../utils/user';
-import { AlertCircle, Save, X, User, Lock, ShieldCheck, RefreshCw, Trash2 } from 'lucide-react';
+import {
+    AlertCircle,
+    Save,
+    X,
+    User as UserIcon,
+    Lock,
+    ShieldCheck,
+    RefreshCw,
+    Trash2,
+} from 'lucide-react';
 
 const ROLE_OPTIONS = [
     { value: 'cashier', label: 'Cajero' },
@@ -205,7 +214,7 @@ export const UserFormPage: React.FC = () => {
                             <FormSection
                                 title="Datos del usuario"
                                 description="Nombre e información de contacto"
-                                icon={User}
+                                icon={UserIcon}
                                 iconBg="bg-brand/10"
                                 iconColor="text-brand"
                             >
