@@ -62,8 +62,6 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "email"]
 
     def update(self, instance, validated_data):
-        if instance.code and "code" in validated_data:
-            validated_data.pop("code")
         password = validated_data.pop("password", None)
         for attr, value in validated_data.items():
             setattr(instance, attr, value)

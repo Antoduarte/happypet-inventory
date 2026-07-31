@@ -141,12 +141,10 @@ export const UserFormPage: React.FC = () => {
                     name: data.name,
                     role: data.role,
                     is_active: data.is_active,
+                    code: data.code,
                 };
                 if (data.password) {
                     updatePayload.password = data.password;
-                }
-                if (data.code) {
-                    updatePayload.code = data.code;
                 }
                 await updateUser(id!, updatePayload);
             } else {
@@ -319,28 +317,24 @@ export const UserFormPage: React.FC = () => {
                                                 maxLength={6}
                                                 {...register('code')}
                                                 error={errors.code?.message}
-                                                readOnly={isEditing && !!userData?.code}
-                                                disabled={isEditing && !!userData?.code}
                                             />
-                                            {isEditing && !userData?.code && (
-                                                <button
-                                                    type="button"
-                                                    onClick={handleGenarateCode}
-                                                    className="absolute right-3 top-[34px] text-slate-500 hover:text-slate-600 p-1"
-                                                    title="Generar código"
-                                                >
-                                                    <RefreshCw size={16} />
-                                                </button>
-                                            )}
+
+                                            <button
+                                                type="button"
+                                                onClick={handleGenarateCode}
+                                                className="absolute right-3 top-[34px] text-slate-500 hover:text-slate-600 p-1"
+                                                title="Generar código"
+                                            >
+                                                <RefreshCw size={16} />
+                                            </button>
                                         </div>
                                     </div>
                                 )}
 
                                 {isAdminOrManager && (
                                     <p className="text-xs text-slate-500 mt-2">
-                                        {isEditing && !!userData?.code
-                                            ? 'El código no se puede modificar después de creado.'
-                                            : 'Este código es usado por cajeros para realizar acciones privilegiadas.'}
+                                        Este código es usado por cajeros para realizar acciones
+                                        privilegiadas (descuentos, recargos y ventas a crédito).
                                     </p>
                                 )}
 

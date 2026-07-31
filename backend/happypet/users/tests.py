@@ -3,8 +3,43 @@ from unittest.mock import patch
 
 from django.core.management import call_command
 from django.test import TestCase
+from rest_framework.test import APIClient
 
 from .models import User
+
+
+class UserUpdateCodeTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            email="admin@test.com", password="testpass", role="admin", name="Admin"
+        )
+        self.manager = User.objects.create_user(
+            email="manager@test.com", password="testpass", role="manager", name="Manager"
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.admin)
+
+    def test_update_user_code(self):
+        response = self.client.patch(
+            f"/api/users/{self.manager.id}/",
+            {"code": "ABC123"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.manager.refresh_from_db()
+        self.assertEqual(self.manager.code, "ABC123")
+
+    def test_update_user_code_can_be_cleared(self):
+        self.manager.code = "ABC123"
+        self.manager.save()
+        response = self.client.patch(
+            f"/api/users/{self.manager.id}/",
+            {"code": ""},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.manager.refresh_from_db()
+        self.assertEqual(self.manager.code, "")
 
 
 class InitAdminCommandTests(TestCase):
