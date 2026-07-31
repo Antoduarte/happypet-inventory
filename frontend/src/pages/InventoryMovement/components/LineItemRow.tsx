@@ -1,6 +1,7 @@
 import React from 'react';
 import { Trash2 } from 'lucide-react';
 import { SearchableCombobox, type ComboboxOption } from '../../Sales/components/SearchableCombobox';
+import { formatMultiplier } from '../../../utils/format';
 
 export interface LineItem {
     product_id: number | null;
@@ -60,7 +61,7 @@ export const LineItemRow: React.FC<LineItemRowProps> = ({
                         <option value="">Unidad Base ({baseUnit})</option>
                         {presentationOptions.map((pres) => (
                             <option key={pres.id} value={pres.id}>
-                                {pres.name} (×{pres.multiplier} {baseUnit})
+                                {pres.name} (×{formatMultiplier(pres.multiplier)} {baseUnit})
                             </option>
                         ))}
                     </select>

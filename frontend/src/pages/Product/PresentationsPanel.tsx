@@ -12,6 +12,7 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Pencil, Layers, CheckCircle2, XCircle } from 'lucide-react';
 import type { ProductPresentation } from '../../interfaces/product';
 import { BASE_UNIT_LABELS } from '../../schemas/product';
+import { formatMultiplier } from '../../utils/format';
 
 interface PresentationsPanelProps {
     productId: number;
@@ -109,7 +110,7 @@ export const PresentationsPanel: React.FC<PresentationsPanelProps> = ({
                                 </div>
                                 <div className="flex items-center gap-3 mt-0.5 flex-wrap">
                                     <span className="text-[11px] text-slate-500">
-                                        ×{p.multiplier} {baseUnit}
+                                        ×{formatMultiplier(p.multiplier)} {baseUnit}
                                     </span>
                                     <span className="text-[11px] font-semibold text-slate-700">
                                         ${parseFloat(p.price).toFixed(2)}
