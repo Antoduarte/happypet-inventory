@@ -6,6 +6,7 @@ import { CategoryList } from '../pages/Category/CategoryList';
 import { CategoryFormPage } from '../pages/Category/CategoryFormPage';
 import { ProductList } from '../pages/Product/ProductList';
 import { ProductFormPage } from '../pages/Product/ProductFormPage';
+import { PresentationFormPage } from '../pages/Product/PresentationFormPage';
 import { MovementList } from '../pages/InventoryMovement/MovementList';
 import { MovementFormPage } from '../pages/InventoryMovement/MovementFormPage';
 import { SalesList } from '../pages/Sales/SalesList';
@@ -44,6 +45,14 @@ export const AppRoutes = () => {
                     <Route path="products" element={<ProductList />} />
                     <Route path="products/new" element={<ProductFormPage />} />
                     <Route path="products/edit/:id" element={<ProductFormPage />} />
+                    <Route
+                        path="products/:productId/presentations/new"
+                        element={<PresentationFormPage />}
+                    />
+                    <Route
+                        path="products/:productId/presentations/edit/:id"
+                        element={<PresentationFormPage />}
+                    />
 
                     <Route path="movements" element={<MovementList />} />
                     <Route path="movements/new" element={<MovementFormPage />} />
