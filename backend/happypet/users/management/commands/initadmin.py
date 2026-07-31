@@ -19,8 +19,21 @@ class Command(BaseCommand):
             ))
             return
 
-        if User.objects.filter(role="admin").exists():
-            self.stdout.write(self.style.SUCCESS("Admin user already exists."))
+        admin = User.objects.filter(role="admin").first()
+
+        if admin:
+            if admin.is_active:
+                self.stdout.write(
+                    self.style.SUCCESS("Admin user already exists and is active.")
+                )
+                return
+            admin.is_active = True
+            admin.is_staff = True
+            admin.is_superuser = True
+            admin.save(update_fields=["is_active", "is_staff", "is_superuser"])
+            self.stdout.write(
+                self.style.SUCCESS(f"Admin user reactivated: {admin.email}")
+            )
             return
 
         user = User.objects.create_user(
