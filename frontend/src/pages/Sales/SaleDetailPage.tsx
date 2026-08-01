@@ -128,7 +128,7 @@ export const SaleDetailPage: React.FC = () => {
     };
 
     const handlePrint = () => {
-        window.open(`http://localhost:8000/api/sales/${sale.id}/print/`, '_blank');
+        window.open(`/api/sales/${sale.id}/print/`, '_blank');
     };
 
     // Loading state

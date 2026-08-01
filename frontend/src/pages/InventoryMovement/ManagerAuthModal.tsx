@@ -30,7 +30,7 @@ export const ManagerAuthModal: React.FC<ManagerAuthModalProps> = ({
     isOpen,
     onClose,
     onSuccess,
-    message = 'Para registrar movimientos de inventario necesitas el código de autorización de un gerente o administrador.',
+    message = 'Para registrar movimientos de inventario necesitas el código de autorización',
 }) => {
     const [isVerifying, setIsVerifying] = React.useState(false);
     const [verifyError, setVerifyError] = React.useState<string | null>(null);
