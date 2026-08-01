@@ -61,6 +61,12 @@ export const UserList: React.FC = () => {
             ),
         },
         {
+            header: 'Código de Autorización',
+            accessorKey: 'code',
+            sortable: true,
+            cell: (item) => <span className="text-slate-600">{item.code || '—'}</span>,
+        },
+        {
             header: 'Estado',
             accessorKey: 'is_active',
             sortable: true,
