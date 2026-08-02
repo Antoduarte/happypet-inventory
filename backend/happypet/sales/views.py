@@ -1,4 +1,3 @@
-import io
 from decimal import Decimal
 
 from django.http import HttpResponse
@@ -6,7 +5,7 @@ from django.template import engines
 from rest_framework import viewsets, filters, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from xhtml2pdf import pisa
+import pdfkit
 
 from happypet.users.permissions import CanTransitionSale
 from happypet.utils.pagination import StandardResultsSetPagination
@@ -205,11 +204,21 @@ class SalePrintView:
         template = django_engine.get_template("sales/ticket_print.html")
         html = template.render(context)
 
-        response = HttpResponse(content_type="application/pdf")
+        config = pdfkit.configuration(
+            wkhtmltopdf=r'C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe'
+        )
+        options = {
+            'page-width': '80mm',
+            'page-height': '200mm',
+            'margin-top': '5mm',
+            'margin-right': '5mm',
+            'margin-bottom': '5mm',
+            'margin-left': '5mm',
+            'encoding': "UTF-8",
+            'no-outline': None,
+        }
+        pdf = pdfkit.from_string(html, False, options=options, configuration=config)
+
+        response = HttpResponse(pdf, content_type='application/pdf')
         response["Content-Disposition"] = f"inline; filename=\"ticket-{sale.id}.pdf\""
-
-        pisa_status = pisa.CreatePDF(io.BytesIO(html.encode("utf-8")), dest=response)
-        if pisa_status.err:
-            return HttpResponse(f"PDF generation error: {pisa_status.err}", status=500)
-
         return response

@@ -38,6 +38,21 @@ PASO 3 - Instalar el entorno virtual
    El servidor real es mod_wsgi. Si "pip install mod_wsgi" falla,
    verificar que Python 3.12 de 64 bits este instalado.
 
+   NOTA IMPORTANTE: El proyecto usa pdfkit + wkhtmltopdf para imprimir
+   tickets. Asegurarse de que el cliente tenga instalado wkhtmltopdf en:
+       C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe
+   Si no esta instalado, descargarlo de https://wkhtmltopdf.org/downloads.html
+   Si el venv ya tenia xhtml2pdf instalado, desinstalarlo:
+       pip uninstall xhtml2pdf -y
+
+   NOTA SOBRE EL ERROR "RevocationCheckingPolicy() takes no arguments":
+   Ese error viene de xhtml2pdf en su cadena de dependencias (pyhanko).
+   Si aparece, la solucion es:
+       1. Editar requirements.txt: cambiar xhtml2pdf por pdfkit.
+       2. pip uninstall xhtml2pdf -y
+       3. pip install pdfkit
+   El codigo ya fue migrado a pdfkit en happypet/sales/views.py.
+
 ------------------------------------------------------------------
 PASO 4 - Configurar Apache (VirtualHost nuevo)
 ------------------------------------------------------------------
