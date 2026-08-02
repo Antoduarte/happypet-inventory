@@ -47,16 +47,18 @@ PASO 3 - Instalar el entorno virtual
    tickets. Asegurarse de que el cliente tenga instalado wkhtmltopdf en:
        C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe
    Si no esta instalado, descargarlo de https://wkhtmltopdf.org/downloads.html
-   Si el venv ya tenia xhtml2pdf instalado, desinstalarlo:
-       pip uninstall xhtml2pdf -y
 
-   NOTA SOBRE EL ERROR "RevocationCheckingPolicy() takes no arguments":
-   Ese error viene de xhtml2pdf en su cadena de dependencias (pyhanko).
-   Si aparece, la solucion es:
-       1. Editar requirements.txt: cambiar xhtml2pdf por pdfkit.
-       2. pip uninstall xhtml2pdf -y
-       3. pip install pdfkit
-   El codigo ya fue migrado a pdfkit en happypet/sales/views.py.
+   LIMPIEZA DE PAQUETES HUERFANOS (si el venv ya tenia xhtml2pdf):
+   Los paquetes xhtml2pdf, pyHanko y pyhanko-certvalidator ya no se usan.
+   Si quedaron instalados de una version anterior, desinstalarlos:
+       pip uninstall xhtml2pdf pyHanko pyhanko-certvalidator -y
+
+   NOTA SOBRE cryptography y el login:
+   La version 50.0.0 de cryptography tiene un bug en Windows con
+   Python 3.12.0 que hace fallar el login (error _SSHCipher()).
+   El requirements.txt ya tiene puesta la version compatible (43.0.3).
+   Si el cliente tiene instalada una version nueva, bajarla asi:
+       pip install cryptography==43.0.3
 
 ------------------------------------------------------------------
 PASO 4 - Configurar Apache (VirtualHost nuevo)
