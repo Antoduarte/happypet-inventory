@@ -22,7 +22,7 @@ cd backend
 python manage.py runserver  # Start API (http://localhost:8000)
 python manage.py migrate    # Apply migrations
 python manage.py makemigrations  # Create migrations
-python manage.py test       # Run tests
+.venv\Scripts\python.exe manage.py test       # Run tests
 ```
 
 ## Architecture Notes
