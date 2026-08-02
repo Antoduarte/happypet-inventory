@@ -41,19 +41,21 @@ PASO 3 - Instalar el entorno virtual
 ------------------------------------------------------------------
 PASO 4 - Configurar Apache (VirtualHost nuevo)
 ------------------------------------------------------------------
-4. Abrir C:\Apache24\conf\httpd.conf y AGREGAR AL FINAL este bloque
-   (sin modificar nada existente):
+4. Abrir C:\Apache24\conf\httpd.conf y AGREGAR AL FINAL este bloque:
 
-   <VirtualHost *:80>
-       ServerName inventory.local
-       DocumentRoot "C:/Apache24/htdocs/happypet-inventory"
+   Listen 8080
 
-       WSGIScriptAlias / "C:/Apache24/htdocs/happypet-inventory/config/wsgi.py"
+   <VirtualHost *:8080>
+       WSGIScriptAlias / "C:/Apache24/htdocs/happypet-inventory/config/wsgi.py" application-group=inventory
 
        <Directory "C:/Apache24/htdocs/happypet-inventory">
            Require all granted
        </Directory>
    </VirtualHost>
+
+   Y si happypet sigue en config global, agregarle tambien su grupo:
+   en la linea WSGIScriptAlias de happypet, al final poner
+   application-group=happypet (asi no comparte sub-interprete).
 
    NOTA 1: LoadFile python312.dll, LoadModule wsgi_module y
    WSGIPythonHome ya estan configurados globalmente (los usa el
@@ -61,9 +63,17 @@ PASO 4 - Configurar Apache (VirtualHost nuevo)
 
    NOTA 2: WSGIPythonPath NO puede ir dentro de <VirtualHost> en
    Windows (da error de sintaxis). El path del venv propio lo
-   maneja el archivo config\wsgi.py del proyecto, que inserta en
-   sys.path su venv antes del de happypet (para importar Django 6.0
-   y no el 4.2).
+   maneja el archivo config\wsgi.py del proyecto (sys.path.insert).
+
+   NOTA 3 (IMPORTANTE): con dos proyectos en un mismo Apache, mod_wsgi
+   comparte el interprete. Para que cada uno use SU Django, es OBLIGATORIO:
+   - wsgi.py con asignacion directa (NO setdefault):
+       os.environ['DJANGO_SETTINGS_MODULE'] = 'config.settings.production'
+   - django-environ leyendo con overwrite=True:
+       env.read_env(BASE_DIR/.env, overwrite=True)
+   - application-group distinto en cada WSGIScriptAlias.
+   Esto ya esta aplicado en el codigo del proyecto (config/wsgi.py y
+   config/settings/base.py).
 
 ------------------------------------------------------------------
 PASO 5 - Agregar el dominio en el archivo HOSTS

@@ -5,7 +5,7 @@ import environ
 BASE_DIR = Path(__file__).resolve(strict=True).parent.parent.parent
 
 env = environ.Env()
-env.read_env(str(BASE_DIR / ".env"))
+env.read_env(str(BASE_DIR / ".env"), overwrite=True)
 
 APPS_DIR = BASE_DIR / "happypet"
 
