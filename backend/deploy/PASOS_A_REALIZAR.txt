@@ -1,0 +1,108 @@
+PASOS PARA MONTAR HAPPYPET-INVENTORY EN LA COMPUTADORA DEL CLIENTE
+=================================================================
+Python 3.12 + Apache 2.4 + mod_wsgi. El cliente YA tiene Apache
+sirviendo otro proyecto (happypet) con la misma configuracion.
+NO se toca nada de lo que ya funciona.
+
+------------------------------------------------------------------
+PASO 1 - Copiar el proyecto
+------------------------------------------------------------------
+1. Copiar la carpeta "backend" completa a la maquina del cliente:
+       C:\Apache24\htdocs\happypet-inventory
+   Debe incluir: config\, happypet\, manage.py, requirements.txt,
+   static\ y el archivo .env (con DATABASE_URL).
+
+------------------------------------------------------------------
+PASO 2 - Configurar el archivo .env
+------------------------------------------------------------------
+2. Editar el archivo .env (en C:\Apache24\htdocs\happypet-inventory)
+   y AGREGAR la siguiente linea (es obligatoria):
+       DJANGO_ALLOWED_HOSTS=inventory.local
+   Sin esto, Django responde "400 Bad Request" en produccion
+   (el valor por defecto es .onrender.com).
+
+------------------------------------------------------------------
+PASO 3 - Instalar el entorno virtual
+------------------------------------------------------------------
+3. Ejecutar el instalador (una sola vez):
+       C:\Apache24\htdocs\happypet-inventory\deploy\setup_inventory.bat
+
+   Lo que hace:
+       - Crea venv con Python 3.12        (py -3.12 -m venv venv)
+       - Instala dependencias             (pip install -r requirements.txt)
+       - Instala mod_wsgi cp312           (pip install mod_wsgi)
+       - Aplica migraciones               (python manage.py migrate)
+       - Recopila estaticos whitenoise    (python manage.py collectstatic)
+
+   NOTA: gunicorn (en requirements) NO se usa en Windows.
+   El servidor real es mod_wsgi. Si "pip install mod_wsgi" falla,
+   verificar que Python 3.12 de 64 bits este instalado.
+
+------------------------------------------------------------------
+PASO 4 - Configurar Apache (VirtualHost nuevo)
+------------------------------------------------------------------
+4. Abrir C:\Apache24\conf\httpd.conf y AGREGAR AL FINAL este bloque
+   (sin modificar nada existente):
+
+   <VirtualHost *:80>
+       ServerName inventory.local
+       DocumentRoot "C:/Apache24/htdocs/happypet-inventory"
+
+       WSGIScriptAlias / "C:/Apache24/htdocs/happypet-inventory/config/wsgi.py"
+
+       <Directory "C:/Apache24/htdocs/happypet-inventory">
+           Require all granted
+       </Directory>
+   </VirtualHost>
+
+   NOTA 1: LoadFile python312.dll, LoadModule wsgi_module y
+   WSGIPythonHome ya estan configurados globalmente (los usa el
+   proyecto que ya funciona). No se duplican.
+
+   NOTA 2: WSGIPythonPath NO puede ir dentro de <VirtualHost> en
+   Windows (da error de sintaxis). El path del venv propio lo
+   maneja el archivo config\wsgi.py del proyecto, que inserta en
+   sys.path su venv antes del de happypet (para importar Django 6.0
+   y no el 4.2).
+
+------------------------------------------------------------------
+PASO 5 - Agregar el dominio en el archivo HOSTS
+------------------------------------------------------------------
+5. Ejecutar (doble clic) el archivo:
+       C:\Apache24\htdocs\happypet-inventory\deploy\editar_hosts.bat
+   Se abrira el Notepad como administrador (aceptar el cartel de UAC)
+   con el archivo hosts ya cargado.
+   Agregar la linea:
+       127.0.0.1 inventory.local
+   y guardar.
+
+------------------------------------------------------------------
+PASO 6 - Reiniciar Apache y validar
+------------------------------------------------------------------
+6. Verificar sintaxis:    C:\Apache24\bin\httpd -t
+   (debe decir "Syntax OK")
+
+7. Reiniciar el servicio Apache2.4:
+       net stop Apache2.4 && net start Apache2.4
+   (o desde "Servicios" / services.msc)
+
+8. Probar en el navegador:
+       http://inventory.local/admin/
+   y un endpoint de la API (ej. /api/... ).
+
+9. Si algo falla, revisar el log:
+       C:\Apache24\logs\error.log
+
+------------------------------------------------------------------
+NOTAS / ERRORES FRECUENTES
+------------------------------------------------------------------
+- 400 Bad Request            -> DJANGO_ALLOWED_HOSTS mal configurado.
+- Error al iniciar httpd     -> LoadFile debe apuntar al python312.dll
+  del cliente, y el .pyd debe ser cp312 (no cp38).
+- /admin/ no mantiene sesion por HTTP plano -> es normal: en
+  produccion las cookies son Secure. La API con JWT (header
+  Authorization: Bearer ...) funciona siempre.
+- Si inventory importara Django 4.2 en vez de 6.0 (conflicto de
+  sys.path) -> el WSGIPythonPath del vhost ya apunta primero al
+  venv propio; si aun asi falla, avisar para usar reverse proxy
+  con waitress como plan B.
