@@ -10,7 +10,12 @@ PASO 1 - Copiar el proyecto
 1. Copiar la carpeta "backend" completa a la maquina del cliente:
        C:\Apache24\htdocs\happypet-inventory
    Debe incluir: config\, happypet\, manage.py, requirements.txt,
-   static\ y el archivo .env (con DATABASE_URL).
+   static\frontend_build\ y el archivo .env (con DATABASE_URL).
+
+   NOTA: El frontend (React/Vite) ya viene compilado en
+   static\frontend_build\, asi que no hace falta instalar Node.js
+   en la maquina del cliente. Si se modifica el frontend, hay que
+   recompilarlo en la maquina de desarrollo y volver a copiarlo.
 
 ------------------------------------------------------------------
 PASO 2 - Configurar el archivo .env
@@ -131,3 +136,8 @@ NOTAS / ERRORES FRECUENTES
   sys.path) -> el WSGIPythonPath del vhost ya apunta primero al
   venv propio; si aun asi falla, avisar para usar reverse proxy
   con waitress como plan B.
+- TemplateDoesNotExist index.html -> falta la carpeta
+  static\frontend_build\ (no se copio del repo) o no se ejecuto
+  collectstatic. Verificar que la carpeta exista y correr:
+      python manage.py collectstatic --noinput
+  Luego reiniciar Apache.
