@@ -156,7 +156,7 @@ export const SaleFormPage: React.FC = () => {
     }
 
     const handleFormSubmit = (data: any) => {
-        const payload = buildPayload(data);
+        const payload = buildPayload(data, cashSessionId);
 
         const submit = async (code?: string) => {
             const created = await addSale(code ? { ...payload, manager_code: code } : payload);
@@ -171,7 +171,7 @@ export const SaleFormPage: React.FC = () => {
     };
 
     const handleFormSubmitAndPrint = (data: any) => {
-        const payload = buildPayload(data);
+        const payload = buildPayload(data, cashSessionId);
 
         const submit = async (code?: string) => {
             const created = await addSale(code ? { ...payload, manager_code: code } : payload);

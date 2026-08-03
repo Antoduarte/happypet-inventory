@@ -236,11 +236,14 @@ class SaleCreateSerializer(serializers.Serializer):
         if not cash_session:
             user = self.context["request"].user
             from django.utils import timezone
+            from datetime import timedelta
             from happypet.cash.models import CashSession
-            today = timezone.now().date()
+            today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            today_end = today_start + timedelta(days=1)
             active = CashSession.objects.filter(
                 user=user,
-                opened_at__date=today,
+                opened_at__gte=today_start,
+                opened_at__lt=today_end,
                 status=CashSession.STATUS_OPEN,
             ).first()
             if active:

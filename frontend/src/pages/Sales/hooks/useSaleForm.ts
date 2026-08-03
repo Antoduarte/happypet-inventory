@@ -254,7 +254,7 @@ export function useSaleForm() {
 
     // -- Payload mapper --------------------------------------------------------
 
-    function buildPayload(data: SaleFormData): CreateSalePayload {
+    function buildPayload(data: SaleFormData, cashSessionId?: number | null): CreateSalePayload {
         /**
          * Flatten all items + service supplies into a single list.
          * Supplies are sent as standalone product items so the backend can
@@ -285,7 +285,7 @@ export function useSaleForm() {
                     surcharge_percentage: item.surcharge_percentage as DiscountPercentage,
                     surcharge_reason: item.surcharge_reason || null,
                 });
-                // Insumos del servicio ? �tems de producto con v�nculo al servicio padre
+                // Insumos del servicio ?tems de producto con vnculo al servicio padre
                 (item.supplies ?? []).forEach((s) => {
                     allItems.push({
                         product_id: s.productId,
@@ -303,6 +303,7 @@ export function useSaleForm() {
         });
 
         return {
+            cash_session_id: cashSessionId ?? null,
             items: allItems,
             payment_type: data.payment_type,
             discount_percentage: data.discount_percentage as DiscountPercentage,
