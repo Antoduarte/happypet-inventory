@@ -115,6 +115,7 @@ export const ProductFormPage: React.FC = () => {
         name,
         description,
         code,
+        expiry_date,
         categoryId,
         price,
         stock,
@@ -123,8 +124,9 @@ export const ProductFormPage: React.FC = () => {
     }: ProductFormData) => {
         const payload = {
             name,
-            description: description || null,
+            description: description || '',
             code: code || null,
+            expiry_date: expiry_date || null,
             category_id: categoryId ?? null,
             price,
             stock,
