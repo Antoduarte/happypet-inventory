@@ -56,6 +56,7 @@ class ProductSerializer(serializers.ModelSerializer):
             "price",
             "stock",
             "code",
+            "expiry_date",
             "base_unit",
             "category",
             "category_id",

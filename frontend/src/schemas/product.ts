@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const productSchema = z.object({
     name: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),
-    description: z.string().min(1, 'La descripción es requerida'),
+    description: z.string().optional().nullable(),
     code: z.string().optional().nullable(),
     categoryId: z.coerce
         .number({ message: 'La categoría es requerida' })
@@ -12,6 +12,8 @@ export const productSchema = z.object({
     price: z.coerce.number().min(0, 'El precio debe ser positivo'),
     // Decimal stock: now a float (DecimalField on the backend)
     stock: z.coerce.number().min(0, 'El stock no puede ser negativo'),
+    /** Fecha de vencimiento (opcional) */
+    expiry_date: z.string().optional().nullable(),
     /** Unidad de medida base: lb, kg, ml, u, caja, etc. */
     base_unit: z
         .string()

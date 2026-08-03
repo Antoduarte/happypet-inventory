@@ -6,6 +6,7 @@ export interface DashboardStats {
     pending_credit_total: string;
     pending_credit_count: number;
     low_stock_count: number;
+    expiring_count: number;
     today_services: number;
 }
 

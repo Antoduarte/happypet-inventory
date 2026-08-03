@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Package, TrendingUp, AlertTriangle, Scissors, Wallet } from 'lucide-react';
+import { Package, TrendingUp, AlertTriangle, Scissors, Wallet, Calendar } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { useDashboard } from '../../hooks/useDashboard';
 import { useReports } from '../../hooks/useReports';
@@ -112,6 +112,16 @@ export const Dashboard: React.FC = () => {
                     to="/products"
                     isLoading={isLoading}
                     highlight={lowStock > 0}
+                />
+                <KpiCard
+                    title="Por vencer"
+                    value={`${stats?.expiring_count ?? 0} ${(stats?.expiring_count ?? 0) === 1 ? 'producto' : 'productos'}`}
+                    icon={Calendar}
+                    accent="amber"
+                    subtitle="Revisar en Productos →"
+                    to="/products"
+                    isLoading={isLoading}
+                    highlight={(stats?.expiring_count ?? 0) > 0}
                 />
             </div>
 

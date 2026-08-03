@@ -123,7 +123,7 @@ export const ProductFormPage: React.FC = () => {
     }: ProductFormData) => {
         const payload = {
             name,
-            description,
+            description: description || null,
             code: code || null,
             category_id: categoryId ?? null,
             price,
@@ -280,6 +280,26 @@ export const ProductFormPage: React.FC = () => {
                                             {...register('code')}
                                             error={errors.code?.message}
                                         />
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="flex flex-col gap-1.5">
+                                            <label className="text-sm font-medium text-slate-700">
+                                                Fecha de vencimiento{' '}
+                                                <span className="text-slate-400 font-normal">
+                                                    (opcional)
+                                                </span>
+                                            </label>
+                                            <input
+                                                type="date"
+                                                {...register('expiry_date')}
+                                                className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:border-brand-light focus:ring-1 focus:ring-brand-light/10 transition-all outline-none hover:border-slate-400"
+                                            />
+                                            {errors.expiry_date?.message && (
+                                                <p className="text-xs text-red-500">
+                                                    {errors.expiry_date.message}
+                                                </p>
+                                            )}
+                                        </div>
                                     </div>
 
                                     {/* Descripción */}

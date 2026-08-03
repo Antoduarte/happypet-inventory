@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
@@ -62,6 +62,15 @@ class DashboardStatsView(APIView):
             stock__lte=5
         ).count()
 
+        today_plus_20 = today + timedelta(days=20)
+        expiring_count = Product.objects.filter(
+            deleted_at__isnull=True,
+            is_active=True,
+            expiry_date__isnull=False,
+            expiry_date__gte=today,
+            expiry_date__lte=today_plus_20
+        ).count()
+
         today_services = SaleItem.objects.filter(
             sale__sale_date__date=today,
             sale__status='completed',
@@ -74,6 +83,7 @@ class DashboardStatsView(APIView):
             'pending_credit_total': _format_money(pending_credit_total),
             'pending_credit_count': pending_credit_count,
             'low_stock_count': low_stock_count,
+            'expiring_count': expiring_count,
             'today_services': today_services,
         })
 

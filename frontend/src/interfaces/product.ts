@@ -65,6 +65,8 @@ export interface Product {
     price: string;
     stock: string;
     code: string | null;
+    /** Fecha de vencimiento del producto */
+    expiry_date: string | null;
     /** Unidad base del stock (lb, kg, ml, u, etc.) */
     base_unit: string;
     /** La categoría llega anidada (read_only) en GET; se envía el id en escritura */
@@ -80,10 +82,12 @@ export interface Product {
 /** Payload para crear un producto (POST /products/) */
 export interface CreateProductPayload {
     name: string;
-    description: string;
+    description: string | null;
     price: string | number;
     stock: number;
     code?: string | null;
+    /** Fecha de vencimiento del producto */
+    expiry_date?: string | null;
     /** Foreign key: id de la categoría */
     category?: number | null;
     /** Rol del producto: aparece en venta directa */

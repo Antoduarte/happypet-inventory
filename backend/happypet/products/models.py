@@ -64,6 +64,9 @@ class Product(models.Model):
     is_active = models.BooleanField(default=True)
     deleted_at = models.DateTimeField(blank=True, null=True)
 
+    # ── Fecha de vencimiento ──────────────────────────────────────────────
+    expiry_date = models.DateField(blank=True, null=True, help_text="Fecha de vencimiento del producto")
+
     # ── Rol del producto en la venta ────────────────────────────────────────
     # Un producto puede venderse directamente y/o usarse como insumo de un
     # servicio. Controla en qué selector del formulario de venta aparece.
