@@ -48,17 +48,21 @@ PASO 3 - Instalar el entorno virtual
        C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe
    Si no esta instalado, descargarlo de https://wkhtmltopdf.org/downloads.html
 
-   LIMPIEZA DE PAQUETES HUERFANOS (si el venv ya tenia xhtml2pdf):
-   Los paquetes xhtml2pdf, pyHanko y pyhanko-certvalidator ya no se usan.
-   Si quedaron instalados de una version anterior, desinstalarlos:
-       pip uninstall xhtml2pdf pyHanko pyhanko-certvalidator -y
+    LIMPIEZA DE PAQUETES HUERFANOS (si el venv o el sistema tenian xhtml2pdf):
+    Los paquetes xhtml2pdf, pyHanko, pyhanko-certvalidator y cryptography
+    ya no se usan. Si quedaron instalados de una version anterior,
+    desinstalarlos tanto del venv como del Python del sistema:
+        pip uninstall xhtml2pdf pyHanko pyhanko-certvalidator -y
+        pip uninstall cryptography -y
+        py -3.12 -m pip uninstall xhtml2pdf pyHanko pyhanko-certvalidator cryptography -y
 
-   NOTA SOBRE cryptography y el login:
-   La version 50.0.0 de cryptography tiene un bug en Windows con
-   Python 3.12.0 que hace fallar el login (error _SSHCipher()).
-   El requirements.txt ya tiene puesta la version compatible (43.0.3).
-   Si el cliente tiene instalada una version nueva, bajarla asi:
-       pip install cryptography==43.0.3
+    NOTA SOBRE cryptography y el login:
+    La libreria cryptography (cualquier version) falla al importarse
+    en Python 3.12.0 porque su modulo ssh.py usa un dataclass que ese
+    runtime no genera correctamente. PyJWT usa cryptography si detecta
+    que esta instalada. La solucion es desinstalar cryptography por
+    completo (del venv y del sistema) para que PyJWT opere en modo
+    HS256 puro sin necesitarla. Este proyecto no usa RS256/ES256.
 
 ------------------------------------------------------------------
 PASO 4 - Configurar Apache (VirtualHost nuevo)
