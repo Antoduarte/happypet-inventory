@@ -207,9 +207,9 @@ class CashSessionViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"], url_path="active")
     def active(self, request):
         """Return today's open or suspended session for the current user, or null if none."""
+        from happypet.cash.utils import get_today_range
         user = request.user
-        today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        today_end = today_start + timedelta(days=1)
+        today_start, today_end = get_today_range()
         session = (
             CashSession.objects
             .filter(user=user)

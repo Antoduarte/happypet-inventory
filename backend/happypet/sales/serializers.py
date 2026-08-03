@@ -194,6 +194,7 @@ class SaleCreateSerializer(serializers.Serializer):
         cash_session_id = data.get("cash_session_id")
         if cash_session_id:
             from happypet.cash.models import CashSession
+            from happypet.cash.utils import get_today_range
             try:
                 session = CashSession.objects.get(pk=cash_session_id)
             except CashSession.DoesNotExist:
@@ -203,6 +204,11 @@ class SaleCreateSerializer(serializers.Serializer):
             if session.status != CashSession.STATUS_OPEN:
                 raise serializers.ValidationError(
                     {"cash_session_id": "Cash session is not open."}
+                )
+            today_start, today_end = get_today_range()
+            if not (today_start <= session.opened_at < today_end):
+                raise serializers.ValidationError(
+                    {"cash_session_id": "La sesión de caja no corresponde al día actual."}
                 )
             data["cash_session"] = session
 
@@ -234,12 +240,10 @@ class SaleCreateSerializer(serializers.Serializer):
         cash_session = validated_data.pop("cash_session", None)
         # Phase 2.1: auto-lookup active session if no explicit cash_session provided
         if not cash_session:
+            from happypet.cash.utils import get_today_range
             user = self.context["request"].user
-            from django.utils import timezone
-            from datetime import timedelta
             from happypet.cash.models import CashSession
-            today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
-            today_end = today_start + timedelta(days=1)
+            today_start, today_end = get_today_range()
             active = CashSession.objects.filter(
                 user=user,
                 opened_at__gte=today_start,

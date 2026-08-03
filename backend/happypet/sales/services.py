@@ -330,12 +330,13 @@ class SaleStatusService:
 
     def _resolve_cash_session_for_completion(self, sale: Sale, user) -> CashSession | None:
         """Devuelve la sesión de caja activa para registrar el ingreso."""
-        from django.utils import timezone
+        from happypet.cash.utils import get_today_range
 
-        today = timezone.now().date()
+        today_start, today_end = get_today_range()
         return CashSession.objects.filter(
             user=user,
-            opened_at__date=today,
+            opened_at__gte=today_start,
+            opened_at__lt=today_end,
             status=CashSession.STATUS_OPEN,
         ).first()
 

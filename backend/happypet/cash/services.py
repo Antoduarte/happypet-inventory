@@ -22,10 +22,8 @@ class CashSessionService:
         if not register.is_active:
             raise ValueError("Cash register is not active.")
 
-        today = timezone.now().date()
-
-        today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        today_end = today_start + timedelta(days=1)
+        from happypet.cash.utils import get_today_range
+        today_start, today_end = get_today_range()
 
         old_sessions = CashSession.objects.filter(
             cash_register=register,
