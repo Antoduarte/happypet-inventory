@@ -1,8 +1,19 @@
 PASOS PARA MONTAR HAPPYPET-INVENTORY EN LA COMPUTADORA DEL CLIENTE
 =================================================================
-Python 3.12 + Apache 2.4 + mod_wsgi. El cliente YA tiene Apache
-sirviendo otro proyecto (happypet) con la misma configuracion.
-NO se toca nada de lo que ya funciona.
+Python 3.12 + waitress, detras de Apache 2.4 como reverse proxy.
+El cliente YA tiene Apache sirviendo otro proyecto (happypet).
+
+CAMBIO IMPORTANTE RESPECTO A LA VERSION ANTERIOR DE ESTE DOCUMENTO:
+ya NO se usa mod_wsgi. Ver la seccion "POR QUE SE CAMBIO" al final.
+Ambos proyectos (happypet e inventory) pasan a servirse con waitress,
+cada uno en su propio proceso, y Apache solo hace de proxy.
+
+------------------------------------------------------------------
+PASO 0 - Respaldar la configuracion de Apache
+------------------------------------------------------------------
+0. Copiar antes de tocar nada:
+       C:\Apache24\conf\httpd.conf
+       C:\Apache24\conf\extra\*.conf
 
 ------------------------------------------------------------------
 PASO 1 - Copiar el proyecto
@@ -35,13 +46,11 @@ PASO 3 - Instalar el entorno virtual
    Lo que hace:
        - Crea venv con Python 3.12        (py -3.12 -m venv venv)
        - Instala dependencias             (pip install -r requirements.txt)
-       - Instala mod_wsgi cp312           (pip install mod_wsgi)
        - Aplica migraciones               (python manage.py migrate)
        - Recopila estaticos whitenoise    (python manage.py collectstatic)
 
-   NOTA: gunicorn (en requirements) NO se usa en Windows.
-   El servidor real es mod_wsgi. Si "pip install mod_wsgi" falla,
-   verificar que Python 3.12 de 64 bits este instalado.
+   NOTA: gunicorn ya NO esta en requirements (no funciona en Windows).
+   El servidor es waitress. mod_wsgi tampoco se instala ya.
 
    NOTA IMPORTANTE: El proyecto usa pdfkit + wkhtmltopdf para imprimir
    tickets. Asegurarse de que el cliente tenga instalado wkhtmltopdf en:
@@ -65,85 +74,193 @@ PASO 3 - Instalar el entorno virtual
     HS256 puro sin necesitarla. Este proyecto no usa RS256/ES256.
 
 ------------------------------------------------------------------
-PASO 4 - Configurar Apache (VirtualHost nuevo)
+PASO 4 - Probar el arranque a mano
 ------------------------------------------------------------------
-4. Abrir C:\Apache24\conf\httpd.conf y AGREGAR AL FINAL este bloque:
+4. Desde C:\Apache24\htdocs\happypet-inventory :
+       venv\Scripts\python.exe -m waitress --listen=127.0.0.1:8002 --threads=8 config.wsgi:application
 
-   Listen 8080
+   Se usa "python.exe -m waitress" y NO "waitress-serve.exe" a proposito:
+   los .exe que genera pip/uv llevan grabada la ruta absoluta del interprete
+   del momento de la instalacion, asi que renombrar o mover el venv los rompe.
 
-   <VirtualHost *:8080>
-       WSGIScriptAlias / "C:/Apache24/htdocs/happypet-inventory/config/wsgi.py" application-group=inventory
-
-       <Directory "C:/Apache24/htdocs/happypet-inventory">
-           Require all granted
-       </Directory>
-   </VirtualHost>
-
-   Y si happypet sigue en config global, agregarle tambien su grupo:
-   en la linea WSGIScriptAlias de happypet, al final poner
-   application-group=happypet (asi no comparte sub-interprete).
-
-   NOTA 1: LoadFile python312.dll, LoadModule wsgi_module y
-   WSGIPythonHome ya estan configurados globalmente (los usa el
-   proyecto que ya funciona). No se duplican.
-
-   NOTA 2: WSGIPythonPath NO puede ir dentro de <VirtualHost> en
-   Windows (da error de sintaxis). El path del venv propio lo
-   maneja el archivo config\wsgi.py del proyecto (sys.path.insert).
-
-   NOTA 3 (IMPORTANTE): con dos proyectos en un mismo Apache, mod_wsgi
-   comparte el interprete. Para que cada uno use SU Django, es OBLIGATORIO:
-   - wsgi.py con asignacion directa (NO setdefault):
-       os.environ['DJANGO_SETTINGS_MODULE'] = 'config.settings.production'
-   - django-environ leyendo con overwrite=True:
-       env.read_env(BASE_DIR/.env, overwrite=True)
-   - application-group distinto en cada WSGIScriptAlias.
-   Esto ya esta aplicado en el codigo del proyecto (config/wsgi.py y
-   config/settings/base.py).
+   Debe quedar escuchando sin errores. Cortar con Ctrl+C.
+   Si falla aca, no seguir: el problema es del proyecto, no de Apache.
 
 ------------------------------------------------------------------
-PASO 5 - Agregar el dominio en el archivo HOSTS
+PASO 5 - Registrar el servicio de Windows
 ------------------------------------------------------------------
-5. Ejecutar (doble clic) el archivo:
+5. Requiere NSSM (https://nssm.cc) en el PATH.
+   Ejecutar COMO ADMINISTRADOR:
+       C:\Apache24\htdocs\happypet-inventory\deploy\install_service.bat
+
+   Crea el servicio "HappypetInventory" escuchando en 127.0.0.1:8002,
+   con arranque automatico, reinicio ante caida y logs en logs\.
+
+   IMPORTANTE - cuenta del servicio: para que la impresion de tickets
+   funcione, la cuenta bajo la que corre el servicio necesita permiso
+   de ejecucion sobre wkhtmltopdf.exe. Se ajusta con:
+       nssm set HappypetInventory ObjectName .\USUARIO CONTRASENA
+
+   IMPORTANTE - solo 127.0.0.1: el puerto 8002 nunca debe quedar
+   expuesto a la red. Todo el trafico entra por Apache.
+
+------------------------------------------------------------------
+PASO 6 - Configurar Apache (reverse proxy)
+------------------------------------------------------------------
+6. En C:\Apache24\conf\httpd.conf:
+
+   a) Descomentar / agregar:
+          LoadModule proxy_module      modules/mod_proxy.so
+          LoadModule proxy_http_module modules/mod_proxy_http.so
+
+   b) QUITAR (comentar) todo lo de mod_wsgi, que ya no se usa:
+          LoadFile   "...python312.dll"
+          LoadModule wsgi_module ...
+          WSGIPythonHome ...
+      y borrar los WSGIScriptAlias / application-group de AMBOS proyectos.
+
+   c) Quitar "Listen 8080" si estaba (ya no hace falta).
+
+   d) Usar deploy\apache-inventory.conf.example como plantilla:
+      copiarlo a C:\Apache24\conf\extra\apache-inventory.conf e incluirlo
+      desde httpd.conf con:
+          Include conf/extra/apache-inventory.conf
+
+      Queda asi (vhosts por nombre, ambos en el puerto 80):
+          <VirtualHost *:80>  ServerName happypet.local   -> proxy a 127.0.0.1:8001
+          <VirtualHost *:80>  ServerName inventory.local  -> proxy a 127.0.0.1:8002
+
+      Cada VirtualHost DEBE tener su ServerName. Verificar con:
+          C:\Apache24\bin\httpd -S
+
+   NOTA: los estaticos de este proyecto los sirve whitenoise desde el
+   propio Django (incluido el build de React), asi que aqui no hacen
+   falta directivas Alias: se hace proxy de todo.
+
+------------------------------------------------------------------
+PASO 7 - Agregar el dominio en el archivo HOSTS
+------------------------------------------------------------------
+7. Ejecutar (doble clic) el archivo:
        C:\Apache24\htdocs\happypet-inventory\deploy\editar_hosts.bat
    Se abrira el Notepad como administrador (aceptar el cartel de UAC)
    con el archivo hosts ya cargado.
-   Agregar la linea:
+   Agregar las lineas:
        127.0.0.1 inventory.local
+       127.0.0.1 happypet.local
    y guardar.
 
 ------------------------------------------------------------------
-PASO 6 - Reiniciar Apache y validar
+PASO 8 - Aplicar y validar
 ------------------------------------------------------------------
-6. Verificar sintaxis:    C:\Apache24\bin\httpd -t
+8. Verificar sintaxis:    C:\Apache24\bin\httpd -t
    (debe decir "Syntax OK")
 
-7. Reiniciar el servicio Apache2.4:
-       net stop Apache2.4 && net start Apache2.4
-   (o desde "Servicios" / services.msc)
+9. Aplicar:
+       net stop Apache2.4
+       net start Happypet
+       net start HappypetInventory
+       net start Apache2.4
 
-8. Probar en el navegador:
+10. Probar en el navegador:
+       http://inventory.local/          (frontend)
        http://inventory.local/admin/
-   y un endpoint de la API (ej. /api/... ).
+       http://happypet.local/
 
-9. Si algo falla, revisar el log:
-       C:\Apache24\logs\error.log
+11. VALIDACION DEL BUG QUE SE ESTABA ARREGLANDO:
+    el error era intermitente y dependia del orden de carga, asi que
+    NO alcanza con abrir cada sitio una vez.
+    - Abrir el detalle de mascota en happypet Y generar un ticket PDF
+      en inventory, alternando varias veces sin reiniciar nada.
+      Antes esto rompia uno de los dos; ahora ambos deben responder.
+    - Repetir despues de reiniciar Apache y despues de reiniciar cada
+      servicio por separado. El orden de arranque ya no debe influir.
+    - Reiniciar el servicio Happypet y confirmar que inventory sigue
+      respondiendo (prueba de aislamiento).
+    - Buscar "_abc_impl" en:
+          C:\Apache24\logs\error.log
+          <proyecto>\logs\waitress-error.log   (de ambos proyectos)
+      Dejar los sitios en uso normal un dia y volver a revisar.
+
+12. Confirmar desde otra maquina de la red que los puertos 8001 y 8002
+    NO son alcanzables.
+
+13. Si algo falla, revisar:
+       C:\Apache24\logs\error.log          (proxy / Apache)
+       <proyecto>\logs\waitress-error.log  (la app Django)
+
+------------------------------------------------------------------
+POR QUE SE CAMBIO (mod_wsgi -> waitress + proxy)
+------------------------------------------------------------------
+Con los dos proyectos bajo mod_wsgi aparecia de forma intermitente:
+
+    TypeError: _abc_impl is set to wrong type
+
+Si funcionaba la impresion de tickets en un sitio, fallaba el detalle
+de mascota en el otro, y al reiniciar Apache el error se mudaba de sitio.
+
+Causa: en Windows mod_wsgi SOLO soporta modo embebido
+(WSGIDaemonProcess requiere fork() de Unix), asi que ambas apps corrian
+dentro del mismo httpd.exe, cada una en un SUB-INTERPRETE distinto de
+CPython. Las extensiones en C (psycopg2, _imaging, _cffi_backend, lxml)
+usan inicializacion de fase unica: CPython las carga UNA SOLA VEZ POR
+PROCESO y comparte sus objetos de tipo entre interpretes. Cuando una
+clase creada en el interprete A cruzaba al interprete B, su _abc_impl
+era un _abc_data del interprete A y la verificacion de tipo fallaba.
+Ganaba el interprete que cargaba la extension primero; el otro reventaba.
+
+El "application-group=..." que usaba la version anterior de este
+documento NO era la solucion: era exactamente lo que creaba los
+sub-interpretes separados que causan el problema.
+
+Agravante: happypet usa Django 4.2 y este proyecto Django 6.0, y cada
+wsgi.py inyectaba el site-packages de su propio venv con sys.path.insert
+en el MISMO proceso. mod_wsgi soporta un solo Python home por proceso,
+asi que los dos venv quedaban mezclados en el sys.path (es el "plan B
+con waitress" que ya se mencionaba en las notas de la version anterior).
+
+Tampoco se arregla con WSGIApplicationGroup %{GLOBAL}: con un solo
+interprete chocarian el singleton de django.conf.settings y
+DJANGO_SETTINGS_MODULE entre los dos proyectos.
+
+Conclusion: dos proyectos Django no pueden convivir en un mismo proceso
+mod_wsgi en Windows. Hay que separarlos en procesos distintos, que es lo
+que hace waitress + reverse proxy. Beneficio adicional: cada app se
+reinicia sin tocar la otra.
 
 ------------------------------------------------------------------
 NOTAS / ERRORES FRECUENTES
 ------------------------------------------------------------------
-- 400 Bad Request            -> DJANGO_ALLOWED_HOSTS mal configurado.
-- Error al iniciar httpd     -> LoadFile debe apuntar al python312.dll
-  del cliente, y el .pyd debe ser cp312 (no cp38).
+- 400 Bad Request            -> DJANGO_ALLOWED_HOSTS mal configurado, o
+  falta ProxyPreserveHost On en el VirtualHost (sin eso Django recibe
+  "127.0.0.1:8002" como Host en vez de "inventory.local").
+- 503 Service Unavailable    -> el servicio de waitress no esta corriendo.
+  Revisar services.msc y <proyecto>\logs\waitress-error.log.
+- Se abre el sitio equivocado -> falta ServerName en algun VirtualHost.
+  Revisar con: C:\Apache24\bin\httpd -S
 - /admin/ no mantiene sesion por HTTP plano -> es normal: en
   produccion las cookies son Secure. La API con JWT (header
   Authorization: Bearer ...) funciona siempre.
-- Si inventory importara Django 4.2 en vez de 6.0 (conflicto de
-  sys.path) -> el WSGIPythonPath del vhost ya apunta primero al
-  venv propio; si aun asi falla, avisar para usar reverse proxy
-  con waitress como plan B.
 - TemplateDoesNotExist index.html -> falta la carpeta
   static\frontend_build\ (no se copio del repo) o no se ejecuto
   collectstatic. Verificar que la carpeta exista y correr:
       python manage.py collectstatic --noinput
-  Luego reiniciar Apache.
+  Luego reiniciar el servicio HappypetInventory.
+- Los tickets PDF fallan pero el resto anda -> la cuenta del servicio
+  no puede ejecutar wkhtmltopdf.exe. Ver PASO 5.
+- "Failed to canonicalize script path" en waitress-error.log, y el
+  servicio queda en estado "Paused" -> el venv fue renombrado o movido
+  DESPUES de instalar los paquetes. Los .exe de venv\Scripts (incluido
+  pip.exe) llevan grabada la ruta absoluta del interprete del momento
+  de la instalacion. Solucion: recrear el venv en su ubicacion final,
+  o invocar siempre python.exe -m <modulo> en vez del .exe.
+  ("Paused" es como reporta NSSM cuando la app se cae una y otra vez.)
+
+------------------------------------------------------------------
+ROLLBACK
+------------------------------------------------------------------
+Restaurar los .conf respaldados en el PASO 0, reactivar LoadModule
+wsgi_module, y detener/quitar los servicios:
+    net stop HappypetInventory
+    nssm remove HappypetInventory confirm
+Se vuelve al estado anterior (con el bug) sin perdida de datos:
+nada de esto toca la base de datos ni el esquema.

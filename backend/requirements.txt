@@ -7,4 +7,4 @@ djangorestframework-simplejwt>=5.5.1
 psycopg2-binary>=2.9.11
 pdfkit>=1.0.0
 whitenoise>=6.0.0
-gunicorn>=23.0.0
+waitress>=3.0.0

@@ -1,0 +1,57 @@
+# ============================================================================
+# VirtualHost de happypet-inventory — Apache 2.4 como reverse proxy hacia waitress.
+#
+# Copiar a C:\Apache24\conf\extra\ y referenciarlo desde httpd.conf con:
+#     Include conf/extra/apache-inventory.conf
+#
+# Requisitos en httpd.conf (descomentar):
+#     LoadModule proxy_module      modules/mod_proxy.so
+#     LoadModule proxy_http_module modules/mod_proxy_http.so
+#
+# Y quitar TODO lo de mod_wsgi, que ya no se usa:
+#     #LoadFile   "C:/.../python312.dll"
+#     #LoadModule wsgi_module ...
+#     #WSGIPythonHome ...
+#     y los WSGIScriptAlias / application-group de AMBOS proyectos.
+#
+# NOTA sobre estaticos: este proyecto usa whitenoise
+# (config/settings/production.py -> STORAGES), asi que Django sirve /static/
+# por su cuenta, incluido el build de React en static/frontend_build/.
+# No hacen falta directivas Alias aqui: se hace proxy de todo.
+# ============================================================================
+
+<VirtualHost *:80>
+    ServerName inventory.local
+
+    # Conserva el header Host para que ALLOWED_HOSTS (DJANGO_ALLOWED_HOSTS
+    # en el .env = inventory.local) siga validando.
+    ProxyPreserveHost On
+
+    ProxyPass        / http://127.0.0.1:8002/
+    ProxyPassReverse / http://127.0.0.1:8002/
+
+    ErrorLog  "logs/inventory-error.log"
+    CustomLog "logs/inventory-access.log" common
+</VirtualHost>
+
+# ============================================================================
+# IMPORTANTE — vhosts por nombre en el puerto 80
+#
+# La configuracion anterior usaba "Listen 8080" + <VirtualHost *:8080>, lo cual
+# no concuerda con acceder a http://inventory.local/ (puerto 80). Con vhosts por
+# nombre, AMBOS proyectos van en *:80 y cada uno se distingue por ServerName:
+#
+#     <VirtualHost *:80>  ServerName happypet.local   -> proxy a 127.0.0.1:8001
+#     <VirtualHost *:80>  ServerName inventory.local  -> proxy a 127.0.0.1:8002
+#
+# Requisitos:
+#   - Cada VirtualHost DEBE tener su ServerName. El primero que Apache lea es
+#     el default para cualquier Host que no coincida.
+#   - Ambos nombres en C:\Windows\System32\drivers\etc\hosts:
+#         127.0.0.1 happypet.local
+#         127.0.0.1 inventory.local
+#     (ver deploy\editar_hosts.bat)
+#   - Ya no hace falta "Listen 8080"; se puede quitar.
+#
+# Verificar con:  C:\Apache24\bin\httpd -S    (lista los vhosts y sus nombres)
+# ============================================================================
