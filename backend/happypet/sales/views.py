@@ -44,7 +44,7 @@ class SaleViewSet(viewsets.ModelViewSet):
 
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ["id", "payment_type", "status"]
-    ordering_fields = ["sale_date", "total_price", "quantity"]
+    ordering_fields = ["id", "sale_date", "total_price", "quantity", "payment_type", "status"]
     ordering = ["-sale_date"]
 
     def get_queryset(self):

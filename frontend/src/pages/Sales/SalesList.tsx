@@ -9,6 +9,7 @@ import { SelectFilter } from '../../components/ui/SelectFilter';
 import { useSale } from '../../hooks/useSale';
 import { useAuth } from '../../hooks/useAuth';
 import { usePermission } from '../../hooks/usePermission';
+import { usePagination } from '../../hooks/usePagination';
 import { reportService } from '../../services/report';
 import type { Sale } from '../../interfaces/sale';
 
@@ -35,12 +36,15 @@ const STATUS_CLASSES: Record<string, string> = {
 };
 
 export const SalesList: React.FC = () => {
-    const { sales, fetchSales } = useSale();
+    const { sales, totalCount, isLoading, fetchSales } = useSale();
     const navigate = useNavigate();
     const { cashSessionId, cashSessionStatus } = useAuth();
     const { isAdmin, isManager } = usePermission();
     const isAdminOrManager = isAdmin || isManager;
     const [sellerId, setSellerId] = useState<number | null>(null);
+
+    const { pagination, setPage, handleSearchChange, handleSortChange } = usePagination();
+    const { currentPage, itemsPerPage, search, ordering } = pagination;
 
     const fetchSellerOptions = useCallback(async () => {
         try {
@@ -51,10 +55,21 @@ export const SalesList: React.FC = () => {
         }
     }, []);
 
-    // Load sales on mount and when seller filter changes
+    // Load sales on mount and when pagination, search, ordering or seller filter changes
     useEffect(() => {
-        fetchSales({ cashier_id: sellerId ?? undefined });
-    }, [fetchSales, sellerId]);
+        fetchSales({
+            page: currentPage,
+            page_size: itemsPerPage,
+            search,
+            ordering,
+            cashier_id: sellerId ?? undefined,
+        });
+    }, [fetchSales, currentPage, itemsPerPage, search, ordering, sellerId]);
+
+    const handleSellerChange = (id: number | null) => {
+        setSellerId(id);
+        setPage(1);
+    };
 
     const handleOpenForm = () => {
         if (cashSessionStatus === 'suspended' && cashSessionId) {
@@ -181,7 +196,15 @@ export const SalesList: React.FC = () => {
                     columns={columns}
                     searchKey="id"
                     searchPlaceholder="Buscar por ID de Pedido..."
+                    isLoading={isLoading}
+                    serverSide
+                    itemsPerPage={itemsPerPage}
+                    totalCount={totalCount}
+                    currentPage={currentPage}
                     onRowClick={handleRowClick}
+                    onPageChange={setPage}
+                    onSearchChange={handleSearchChange}
+                    onSortChange={handleSortChange}
                     filters={
                         isAdminOrManager && (
                             <SelectFilter
@@ -191,7 +214,7 @@ export const SalesList: React.FC = () => {
                                 icon={User}
                                 ariaLabel="Filtrar por vendedor"
                                 selectedId={sellerId}
-                                onChange={setSellerId}
+                                onChange={handleSellerChange}
                                 fetchOptions={fetchSellerOptions}
                             />
                         )
