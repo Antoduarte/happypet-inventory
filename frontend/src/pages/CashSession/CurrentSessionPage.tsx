@@ -85,8 +85,24 @@ export const CurrentSessionPage: React.FC = () => {
 
     const cashSales =
         session.sales
-            ?.filter((s) => s.payment_type === 'cash' && s.status !== 'cancelled')
-            .reduce((sum, s) => sum + parseFloat(s.total_price || '0'), 0) ?? 0;
+            ?.filter((s) => s.status !== 'cancelled')
+            .reduce((sum, s) => {
+                if (s.payment_type === 'cash') {
+                    return sum + parseFloat(s.total_price || '0');
+                }
+                if (s.payment_type === 'mixed' && s.payment_split) {
+                    return (
+                        sum +
+                        s.payment_split
+                            .filter((entry) => entry.method === 'cash')
+                            .reduce(
+                                (partial, entry) => partial + parseFloat(String(entry.amount)),
+                                0,
+                            )
+                    );
+                }
+                return sum;
+            }, 0) ?? 0;
 
     const incomeTotal =
         session.movements

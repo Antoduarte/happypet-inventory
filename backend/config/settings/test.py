@@ -17,6 +17,7 @@ INSTALLED_APPS = [
     "happypet.sales",
     "happypet.products",
     "happypet.services",
+    "happypet.dashboard",
 ]
 
 ROOT_URLCONF = "config.urls_test"

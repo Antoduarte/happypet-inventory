@@ -137,7 +137,7 @@ class SaleService {
         id: number,
         status: 'completed' | 'cancelled',
         managerCode?: string,
-        paymentType?: 'cash' | 'card' | 'transfer' | 'qr',
+        paymentType?: 'cash' | 'card' | 'transfer',
     ): Promise<Sale> {
         const payload: PatchSalePayload = { status };
         if (paymentType) {

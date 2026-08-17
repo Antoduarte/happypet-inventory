@@ -21,8 +21,17 @@ export type { PaginatedResponse };
 /** Valid discount / surcharge step values accepted by the backend. */
 export type DiscountPercentage = 0 | 5 | 10 | 15 | 20 | 25 | 30;
 
+/** Individual payment method options (excluding mixed/credit). */
+export type PaymentMethod = 'cash' | 'card' | 'transfer';
+
 /** Sale payment method options. */
-export type PaymentType = 'cash' | 'card' | 'transfer' | 'qr' | 'credit';
+export type PaymentType = PaymentMethod | 'mixed' | 'credit';
+
+/** A single payment method split entry. */
+export interface PaymentSplit {
+    method: PaymentMethod;
+    amount: number;
+}
 
 /** Sale lifecycle statuses. */
 export type SaleStatus = 'pending' | 'completed' | 'cancelled';
@@ -78,6 +87,8 @@ export interface Sale {
     surcharge_reason: string | null;
     status: SaleStatus;
     payment_type: PaymentType;
+    /** Desglose de montos por método cuando el pago es mixto. */
+    payment_split: PaymentSplit[];
     /** ISO 8601 datetime string (auto-set on creation). */
     sale_date: string;
     items: SaleItem[];
@@ -113,6 +124,8 @@ export interface CreateSalePayload {
     surcharge_reason?: string | null;
     status?: SaleStatus;
     payment_type?: PaymentType;
+    /** Desglose de montos por método cuando el pago es mixto. */
+    payment_split?: PaymentSplit[];
     /** Código de autorización de manager/admin. El backend lo exige a cajeros para cancelar. */
     manager_code?: string;
 }
@@ -143,4 +156,15 @@ export interface SaleQueryParams {
     payment_type?: PaymentType;
     /** Filter by cashier (admin/manager only). */
     cashier_id?: number;
+}
+
+export type PaymentOptionValue = PaymentMethod | 'credit';
+
+export interface PaymentOption {
+    value: PaymentOptionValue;
+    label: string;
+    icon: React.ElementType;
+    activeClass: string;
+    iconClass: string;
+    splittable: boolean;
 }

@@ -1,7 +1,8 @@
 import React from 'react';
-import { DollarSign, Percent, Receipt } from 'lucide-react';
+import { DollarSign, Percent, Receipt, Wallet } from 'lucide-react';
 import type { Sale } from '../../interfaces/sale';
 import { Card } from './Card';
+import { getPaymentTypeLabel, PAYMENT_ICONS } from '../../utils/payment';
 
 interface FinancialSummaryCardProps {
     sale: Sale;
@@ -81,6 +82,37 @@ export const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({ sale
                         C${parseFloat(sale.total_price).toFixed(2)}
                     </span>
                 </div>
+
+                {/* Mixed payment breakdown */}
+                {sale.payment_type === 'mixed' &&
+                    sale.payment_split &&
+                    sale.payment_split.length > 0 && (
+                        <div className="pt-3 border-t border-slate-100">
+                            <p className="text-xs font-semibold text-slate-500 mb-2 flex items-center gap-1.5">
+                                <Wallet size={12} />
+                                Desglose del pago
+                            </p>
+                            <div className="space-y-1.5">
+                                {sale.payment_split.map((entry) => {
+                                    const Icon = PAYMENT_ICONS[entry.method];
+                                    return (
+                                        <div
+                                            key={entry.method}
+                                            className="flex justify-between items-center text-sm"
+                                        >
+                                            <span className="text-slate-500 flex items-center gap-1.5">
+                                                {Icon && <Icon size={14} />}
+                                                {getPaymentTypeLabel(entry.method)}
+                                            </span>
+                                            <span className="font-medium text-slate-700">
+                                                C${Number(entry.amount).toFixed(2)}
+                                            </span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
 
                 {/* Stats row */}
                 <div className="flex justify-between items-center text-xs text-slate-400 pt-2 border-t border-slate-100">

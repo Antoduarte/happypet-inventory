@@ -1,21 +1,8 @@
 import React from 'react';
-import {
-    Banknote,
-    CreditCard,
-    ArrowLeftRight,
-    QrCode,
-    Wallet,
-    type LucideIcon,
-} from 'lucide-react';
+import { Wallet } from 'lucide-react';
 import type { ReportPaymentRow } from '../../../interfaces/report';
 import { formatCurrency } from '../../../utils/format';
-
-const PAYMENT_ICONS: Record<string, LucideIcon> = {
-    cash: Banknote,
-    card: CreditCard,
-    transfer: ArrowLeftRight,
-    qr: QrCode,
-};
+import { PAYMENT_ICONS } from '../../../utils/payment';
 
 interface PaymentMethodsListProps {
     data: ReportPaymentRow[];

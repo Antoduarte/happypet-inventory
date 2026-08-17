@@ -1,14 +1,10 @@
 import React from 'react';
-import { DollarSign, CreditCard, Banknote, ArrowLeftRight, Wallet } from 'lucide-react';
+import { DollarSign } from 'lucide-react';
 import { Card } from '../../../components/ui/Card';
+import { PAYMENT_ICONS } from '../../../utils/payment';
 import type { Sale } from '../../../interfaces/sale';
 
-const PAYMENT_ICONS: Record<string, React.FC<{ size?: number; className?: string }>> = {
-    cash: Banknote,
-    card: CreditCard,
-    transfer: ArrowLeftRight,
-    credit: Wallet,
-};
+const PAYMENT_TYPES = ['cash', 'card', 'transfer', 'credit'] as const;
 
 interface SalesBreakdownProps {
     sales: Sale[];
@@ -19,16 +15,25 @@ export const SalesBreakdown: React.FC<SalesBreakdownProps> = ({ sales }) => {
         <Card>
             <p className="text-sm font-semibold text-slate-700 mb-4">Ventas por Método de Pago</p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {['cash', 'card', 'transfer', 'credit'].map((type) => {
-                    const typeSales = sales.filter(
+                {PAYMENT_TYPES.map((type) => {
+                    const pureSales = sales.filter(
                         (s) => s.payment_type === type && s.status !== 'cancelled',
                     );
-                    const total = typeSales.reduce(
-                        (sum, s) => sum + parseFloat(s.total_price || '0'),
-                        0,
+                    const mixedSales = sales.filter(
+                        (s) => s.payment_type === 'mixed' && s.status !== 'cancelled',
                     );
-                    const count = typeSales.length;
-                    const Icon = PAYMENT_ICONS[type] || DollarSign;
+                    const mixedTotal = mixedSales.reduce((sum, s) => {
+                        const entry = s.payment_split?.find((p) => p.method === type);
+                        return sum + (entry ? parseFloat(String(entry.amount)) : 0);
+                    }, 0);
+                    const total =
+                        pureSales.reduce((sum, s) => sum + parseFloat(s.total_price || '0'), 0) +
+                        mixedTotal;
+                    const mixedCount = mixedSales.filter((s) =>
+                        s.payment_split?.some((p) => p.method === type),
+                    ).length;
+                    const count = pureSales.length + mixedCount;
+                    const Icon = PAYMENT_ICONS[type] ?? DollarSign;
                     return (
                         <div
                             key={type}

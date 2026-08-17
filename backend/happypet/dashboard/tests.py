@@ -11,6 +11,7 @@ from happypet.products.constants import (
     PAYMENT_CARD,
     PAYMENT_CASH,
     PAYMENT_CREDIT,
+    PAYMENT_MIXED,
     SAILE_STATUS_CANCELLED,
     SAILE_STATUS_COMPLETED,
     SAILE_STATUS_PENDING,
@@ -108,6 +109,24 @@ class SalesReportViewTests(APITestCase):
         by_payment = {row["type"]: row["total"] for row in res.json()["by_payment"]}
         self.assertEqual(by_payment[PAYMENT_CASH], "100.00")
         self.assertEqual(by_payment[PAYMENT_CARD], "40.00")
+
+    def test_mixed_payment_is_redistributed_into_real_methods(self):
+        sale = self._make_sale("240.00", self.session_a, payment=PAYMENT_MIXED)
+        sale.payment_split = [
+            {"method": PAYMENT_CASH, "amount": "120.00"},
+            {"method": PAYMENT_CARD, "amount": "120.00"},
+        ]
+        sale.save()
+
+        self.client.force_authenticate(self.admin)
+        res = self.client.get(REPORT_URL)
+        data = res.json()
+        by_payment = {row["type"]: row["total"] for row in data["by_payment"]}
+
+        self.assertNotIn(PAYMENT_MIXED, by_payment)
+        self.assertEqual(by_payment[PAYMENT_CASH], "120.00")
+        self.assertEqual(by_payment[PAYMENT_CARD], "120.00")
+        self.assertEqual(data["summary"]["total_income"], "240.00")
 
     def test_cashier_breakdown_groups_by_session_owner(self):
         self._make_sale("100.00", self.session_a)

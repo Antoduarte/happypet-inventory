@@ -5,7 +5,12 @@ from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
 from happypet.products.models import Product, ProductPresentation
-from happypet.products.constants import DISCOUNT_CHOICES, PAYMENT_CREDIT
+from happypet.products.constants import (
+    DISCOUNT_CHOICES,
+    PAYMENT_CASH,
+    PAYMENT_CREDIT,
+    PAYMENT_MIXED,
+)
 from happypet.products.services import InsufficientStockError
 from happypet.services.models import Service
 from happypet.users.models import ROLE_ADMIN, ROLE_MANAGER
@@ -145,6 +150,18 @@ class SaleItemCreateSerializer(serializers.Serializer):
 
 
 # ---------------------------------------------------------------------------
+# Payment split serializer
+# ---------------------------------------------------------------------------
+
+
+class PaymentSplitSerializer(serializers.Serializer):
+    """Valida una línea de desglose de pago mixto."""
+
+    method = serializers.ChoiceField(choices=["cash", "card", "transfer"])
+    amount = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=_Decimal("0.01"))
+
+
+# ---------------------------------------------------------------------------
 # Write serializer for the Sale (CREATE)
 # ---------------------------------------------------------------------------
 
@@ -158,8 +175,9 @@ class SaleCreateSerializer(serializers.Serializer):
     )
     items = SaleItemCreateSerializer(many=True)
     payment_type = serializers.ChoiceField(
-        choices=["cash", "card", "transfer", "qr", "credit"], required=False, default="cash"
+        choices=["cash", "card", "transfer", "credit", "mixed"], required=False, default="cash"
     )
+    payment_split = PaymentSplitSerializer(many=True, required=False, default=list)
     discount_percentage = serializers.IntegerField(required=False, default=0)
     surcharge_percentage = serializers.IntegerField(required=False, default=0)
     surcharge_reason = serializers.CharField(
@@ -211,6 +229,28 @@ class SaleCreateSerializer(serializers.Serializer):
                     {"cash_session_id": "La sesión de caja no corresponde al día actual."}
                 )
             data["cash_session"] = session
+
+        # ── Validar consistencia de pago mixto ─────────────────────────────────
+        payment_type = data.get("payment_type", "cash")
+        payment_split = data.get("payment_split", [])
+        if payment_type == PAYMENT_MIXED:
+            if len(payment_split) < 2:
+                raise serializers.ValidationError(
+                    {"payment_split": "Un pago mixto requiere al menos dos métodos de pago."}
+                )
+            methods = [entry.get("method") for entry in payment_split]
+            if len(methods) != len(set(methods)):
+                raise serializers.ValidationError(
+                    {"payment_split": "No puede haber métodos de pago duplicados en el desglose."}
+                )
+        elif payment_type == PAYMENT_CREDIT and payment_split:
+            raise serializers.ValidationError(
+                {"payment_split": "Las ventas a crédito no admiten pago mixto."}
+            )
+        elif payment_split:
+            raise serializers.ValidationError(
+                {"payment_split": "El desglose de pago solo está permitido cuando el método es mixto."}
+            )
 
         # ── Autorización gerente para crédito / desc/rec > 10% ────
         request = self.context.get("request")
@@ -280,7 +320,7 @@ class SaleStatusSerializer(serializers.Serializer):
 
     status = serializers.ChoiceField(choices=["completed", "cancelled"])
     payment_type = serializers.ChoiceField(
-        choices=["cash", "card", "transfer", "qr"],
+        choices=["cash", "card", "transfer"],
         required=False,
         allow_blank=False,
     )
@@ -368,6 +408,7 @@ class SaleSerializer(serializers.ModelSerializer):
             "surcharge_reason",
             "status",
             "payment_type",
+            "payment_split",
             "sale_date",
             "items",
         ]

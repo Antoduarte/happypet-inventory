@@ -55,6 +55,11 @@ class Sale(models.Model):
         blank=True,
         null=True,
     )
+    payment_split = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='Desglose de montos por método de pago cuando el pago es mixto. Ej: [{"method": "cash", "amount": "50.00"}, ...]',
+    )
     sale_date = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

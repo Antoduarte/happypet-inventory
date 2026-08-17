@@ -54,6 +54,7 @@ class SaleDetailRowSerializer(serializers.ModelSerializer):
             'id',
             'sale_date',
             'payment_type',
+            'payment_split',
             'seller_name',
             'subtotal',
             'total_price',

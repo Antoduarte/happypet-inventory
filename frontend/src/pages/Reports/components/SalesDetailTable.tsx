@@ -5,19 +5,8 @@ import { Pagination } from '../../../components/ui/Pagination';
 import { usePagination } from '../../../hooks/usePagination';
 import { useSalesDetail } from '../../../hooks/useSalesDetail';
 import { formatCurrency } from '../../../utils/format';
+import { getPaymentTypeLabel, formatPaymentSplit } from '../../../utils/payment';
 import type { SaleDetailItem, SaleDetailRow } from '../../../interfaces/report';
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-const PAYMENT_LABELS: Record<string, string> = {
-    cash: 'Efectivo',
-    card: 'Tarjeta',
-    transfer: 'Transferencia',
-    qr: 'QR',
-    credit: 'Crédito',
-};
 
 const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);
@@ -39,9 +28,15 @@ interface SalesDetailTableProps {
     start: string;
     end: string;
     sellerId: number | null;
+    cashSessionId?: number;
 }
 
-export const SalesDetailTable: React.FC<SalesDetailTableProps> = ({ start, end, sellerId }) => {
+export const SalesDetailTable: React.FC<SalesDetailTableProps> = ({
+    start,
+    end,
+    sellerId,
+    cashSessionId,
+}) => {
     const { sales, totalCount, isLoading, error, fetchDetail } = useSalesDetail();
     const { pagination, setPage, handleSearchChange } = usePagination();
     const { currentPage, itemsPerPage, search } = pagination;
@@ -51,18 +46,27 @@ export const SalesDetailTable: React.FC<SalesDetailTableProps> = ({ start, end, 
     // Report filter changes reset the table to the first page.
     useEffect(() => {
         setPage(1);
-    }, [start, end, sellerId, setPage]);
+    }, [start, end, sellerId, cashSessionId, setPage]);
 
     const load = useCallback(() => {
-        fetchDetail({
-            start,
-            end,
-            cashier_id: sellerId ?? undefined,
-            page: currentPage,
-            page_size: itemsPerPage,
-            search: search || undefined,
-        });
-    }, [fetchDetail, start, end, sellerId, currentPage, itemsPerPage, search]);
+        fetchDetail(
+            cashSessionId
+                ? {
+                      cash_session_id: cashSessionId,
+                      page: currentPage,
+                      page_size: itemsPerPage,
+                      search: search || undefined,
+                  }
+                : {
+                      start,
+                      end,
+                      cashier_id: sellerId ?? undefined,
+                      page: currentPage,
+                      page_size: itemsPerPage,
+                      search: search || undefined,
+                  },
+        );
+    }, [fetchDetail, start, end, sellerId, cashSessionId, currentPage, itemsPerPage, search]);
 
     useEffect(() => {
         load();
@@ -218,7 +222,7 @@ const SaleRow: React.FC<SaleRowProps> = ({ sale, isExpanded, onToggle }) => {
                 {/* Payment */}
                 <td className="px-4 py-3.5">
                     <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border bg-slate-100 text-slate-600 border-slate-200">
-                        {PAYMENT_LABELS[sale.payment_type] ?? sale.payment_type}
+                        {getPaymentTypeLabel(sale.payment_type)}
                     </span>
                 </td>
 
@@ -234,6 +238,12 @@ const SaleRow: React.FC<SaleRowProps> = ({ sale, isExpanded, onToggle }) => {
                     <td colSpan={7} className="p-0">
                         <div className="bg-slate-50 border-b border-slate-200">
                             <div className="px-6 py-2">
+                                {sale.payment_type === 'mixed' && sale.payment_split && (
+                                    <div className="mb-3 text-xs text-slate-600">
+                                        <span className="font-semibold">Desglose: </span>
+                                        {formatPaymentSplit(sale.payment_split)}
+                                    </div>
+                                )}
                                 <table className="w-full text-xs">
                                     <thead>
                                         <tr className="text-slate-500 uppercase tracking-wide">

@@ -22,6 +22,10 @@ import { PrivateRoute } from '../components/auth/PrivateRoute';
 import { OpenSessionPage } from '../pages/CashSession/OpenSessionPage';
 import { ResumeSessionPage } from '../pages/CashSession/ResumeSessionPage';
 import { CurrentSessionPage } from '../pages/CashSession/CurrentSessionPage';
+import { GeneralMovementList } from '../pages/GeneralMovement/GeneralMovementList';
+import { GeneralMovementFormPage } from '../pages/GeneralMovement/GeneralMovementFormPage';
+import { ClosedCashSessionListPage } from '../pages/ClosedCashSession/ClosedCashSessionListPage';
+import { ClosedCashSessionDetailPage } from '../pages/ClosedCashSession/ClosedCashSessionDetailPage';
 import { RoleGuard } from '@/components/auth/RoleGuard';
 
 export const AppRoutes = () => {
@@ -65,6 +69,31 @@ export const AppRoutes = () => {
                     <Route path="sales/new" element={<SaleFormPage />} />
                     <Route path="sales/:id/print" element={<SaleTicketPrintPage />} />
 
+                    <Route
+                        path="general-movements"
+                        element={
+                            <RoleGuard roles={['admin', 'manager']}>
+                                <GeneralMovementList />
+                            </RoleGuard>
+                        }
+                    />
+                    <Route
+                        path="general-movements/new"
+                        element={
+                            <RoleGuard roles={['admin']}>
+                                <GeneralMovementFormPage />
+                            </RoleGuard>
+                        }
+                    />
+                    <Route
+                        path="general-movements/edit/:id"
+                        element={
+                            <RoleGuard roles={['admin']}>
+                                <GeneralMovementFormPage />
+                            </RoleGuard>
+                        }
+                    />
+
                     <Route path="services" element={<ServiceList />} />
                     <Route path="services/new" element={<ServiceFormPage />} />
                     <Route path="services/edit/:id" element={<ServiceFormPage />} />
@@ -95,6 +124,23 @@ export const AppRoutes = () => {
                     />
 
                     <Route path="cash-session/:sessionId" element={<CurrentSessionPage />} />
+
+                    <Route
+                        path="closed-cash-sessions"
+                        element={
+                            <RoleGuard roles={['admin', 'manager']}>
+                                <ClosedCashSessionListPage />
+                            </RoleGuard>
+                        }
+                    />
+                    <Route
+                        path="closed-cash-sessions/:id"
+                        element={
+                            <RoleGuard roles={['admin', 'manager']}>
+                                <ClosedCashSessionDetailPage />
+                            </RoleGuard>
+                        }
+                    />
 
                     {/* Fallback route */}
                     <Route path="*" element={<Navigate to="/login" replace />} />

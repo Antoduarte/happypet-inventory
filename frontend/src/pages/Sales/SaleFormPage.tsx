@@ -17,7 +17,7 @@
  * 5. Confirma la venta → se mapea al payload del backend y se envía
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Plus,
@@ -31,14 +31,11 @@ import {
     TrendingUp,
     ChevronDown,
     ChevronUp,
-    Banknote,
-    ArrowLeftRight,
     BadgeCheck,
     Printer,
-    Wallet,
 } from 'lucide-react';
 import { useState } from 'react';
-import { Controller } from 'react-hook-form';
+import type { PaymentMethod, PaymentOptionValue } from '../../interfaces/sale';
 
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Card } from '../../components/ui/Card';
@@ -54,46 +51,14 @@ import { useManagerGate } from '../../hooks/useManagerGate';
 import { SaleProductRow } from './components/SaleProductRow';
 import { SaleServiceRow } from './components/SaleServiceRow';
 import { AdjustmentFields } from './components/AdjustmentFields';
-import { useSaleForm, defaultProductItem, defaultServiceItem } from './hooks/useSaleForm';
-
-// ---------------------------------------------------------------------------
-// Payment method config
-// ---------------------------------------------------------------------------
-
-const PAYMENT_OPTIONS = [
-    {
-        value: 'cash',
-        label: 'Efectivo',
-        icon: Banknote,
-        activeClass: 'border-emerald-500 bg-emerald-500 text-white shadow-md shadow-emerald-200',
-        iconClass: 'text-emerald-200',
-    },
-    {
-        value: 'card',
-        label: 'Tarjeta',
-        icon: CreditCard,
-        activeClass: 'border-brand bg-brand text-white shadow-md shadow-brand/25',
-        iconClass: 'text-violet-200',
-    },
-    {
-        value: 'transfer',
-        label: 'Transferencia',
-        icon: ArrowLeftRight,
-        activeClass: 'border-violet-500 bg-violet-500 text-white shadow-md shadow-violet-200',
-        iconClass: 'text-violet-200',
-    },
-    {
-        value: 'credit',
-        label: 'Crédito',
-        icon: Wallet,
-        activeClass: 'border-amber-500 bg-amber-500 text-white shadow-md shadow-amber-200',
-        iconClass: 'text-amber-100',
-    },
-] as const;
-
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
+import {
+    useSaleForm,
+    defaultProductItem,
+    defaultServiceItem,
+    type SaleFormData,
+} from './hooks/useSaleForm';
+import { PaymentOptions } from './components/PaymentOptions';
+import { PaymentSplitAmount } from './components/PaymentSplitAmount';
 
 export const SaleFormPage: React.FC = () => {
     const navigate = useNavigate();
@@ -122,6 +87,125 @@ export const SaleFormPage: React.FC = () => {
     const watchedGlobalSurcharge = watch('surcharge_percentage');
     const hasGlobalAdjustment =
         Number(watchedGlobalDiscount) > 0 || Number(watchedGlobalSurcharge) > 0;
+
+    const watchedPaymentType = watch('payment_type');
+    const watchedPaymentSplitRaw = watch('payment_split');
+    const watchedPaymentSplit = useMemo(
+        () => watchedPaymentSplitRaw ?? [],
+        [watchedPaymentSplitRaw],
+    );
+    const paymentSplitRef = useRef(watchedPaymentSplit);
+    useEffect(() => {
+        paymentSplitRef.current = watchedPaymentSplit;
+    }, [watchedPaymentSplit]);
+
+    // ── Payment split helpers ────────────────────────────────────────────────
+
+    const selectedMethods = useMemo<PaymentMethod[]>(() => {
+        if (watchedPaymentType === 'mixed') {
+            return watchedPaymentSplit.map((entry) => entry.method);
+        }
+        if (watchedPaymentType && watchedPaymentType !== 'credit') {
+            return [watchedPaymentType as PaymentMethod];
+        }
+        return [];
+    }, [watchedPaymentType, watchedPaymentSplit]);
+
+    const splitTotal = watchedPaymentSplit.reduce((sum, entry) => sum + Number(entry.amount), 0);
+    const remainingAmount = Number(grandTotal.toFixed(2)) - Number(splitTotal.toFixed(2));
+    const isSplitValid = watchedPaymentType !== 'mixed' || Math.abs(remainingAmount) < 0.01;
+
+    function buildEvenSplit(
+        methods: PaymentMethod[],
+        total: number,
+    ): { method: PaymentMethod; amount: number }[] {
+        const count = methods.length;
+        if (count === 0) return [];
+        const base = Math.floor((total / count) * 100) / 100;
+        const entries = methods.map((method) => ({ method, amount: base }));
+        const currentTotal = entries.reduce((sum, e) => sum + e.amount, 0);
+        const remainder = Number((total - currentTotal).toFixed(2));
+        if (Math.abs(remainder) > 0) {
+            entries[0].amount = Number((entries[0].amount + remainder).toFixed(2));
+        }
+        return entries;
+    }
+
+    function handleToggleMethod(method: PaymentOptionValue) {
+        if (method === 'credit') {
+            setValue('payment_type', 'credit', { shouldValidate: true });
+            setValue('payment_split', [], { shouldValidate: true });
+            return;
+        }
+
+        const currentCredit = watchedPaymentType === 'credit';
+        const currentMethods = currentCredit ? [] : selectedMethods;
+        const isSelected = currentMethods.includes(method);
+
+        let nextMethods: PaymentMethod[];
+        if (isSelected) {
+            nextMethods = currentMethods.filter((m) => m !== method);
+        } else {
+            nextMethods = [...currentMethods, method];
+        }
+
+        if (nextMethods.length === 0) {
+            // Default back to cash so there is always a payment method
+            setValue('payment_type', 'cash', { shouldValidate: true });
+            setValue('payment_split', [], { shouldValidate: true });
+        } else if (nextMethods.length === 1) {
+            setValue('payment_type', nextMethods[0], { shouldValidate: true });
+            setValue('payment_split', [], { shouldValidate: true });
+        } else {
+            setValue('payment_type', 'mixed', { shouldValidate: true });
+            setValue('payment_split', buildEvenSplit(nextMethods, grandTotal), {
+                shouldValidate: true,
+            });
+        }
+    }
+
+    function handleSplitAmountChange(method: PaymentMethod, rawValue: string) {
+        const value = Math.max(0, Number(rawValue));
+        const nextSplit = watchedPaymentSplit.map((entry) =>
+            entry.method === method ? { ...entry, amount: Number(value.toFixed(2)) } : entry,
+        );
+        setValue('payment_split', nextSplit, { shouldValidate: true });
+    }
+
+    // Keep split total in sync with grand total proportionally when mixed
+    useEffect(() => {
+        const currentSplit = paymentSplitRef.current;
+        if (watchedPaymentType !== 'mixed' || currentSplit.length === 0) return;
+
+        const previousTotal = currentSplit.reduce((sum, entry) => sum + entry.amount, 0);
+        if (previousTotal === 0) {
+            setValue(
+                'payment_split',
+                buildEvenSplit(
+                    currentSplit.map((e) => e.method),
+                    grandTotal,
+                ),
+                { shouldValidate: true },
+            );
+            return;
+        }
+
+        const ratio = grandTotal / previousTotal;
+        let nextSplit = currentSplit.map((entry) => ({
+            method: entry.method,
+            amount: Math.floor(entry.amount * ratio * 100) / 100,
+        }));
+        const currentTotal = nextSplit.reduce((sum, entry) => sum + entry.amount, 0);
+        const remainder = Number((grandTotal - currentTotal).toFixed(2));
+        if (Math.abs(remainder) > 0) {
+            nextSplit = nextSplit.map((entry, index) =>
+                index === 0
+                    ? { ...entry, amount: Number((entry.amount + remainder).toFixed(2)) }
+                    : entry,
+            );
+        }
+        setValue('payment_split', nextSplit, { shouldValidate: true });
+    }, [grandTotal, watchedPaymentType, setValue]);
 
     // Load data on mount
     useEffect(() => {
@@ -155,7 +239,7 @@ export const SaleFormPage: React.FC = () => {
         );
     }
 
-    const handleFormSubmit = (data: any) => {
+    const handleFormSubmit = (data: SaleFormData) => {
         const payload = buildPayload(data, cashSessionId);
 
         const submit = async (code?: string) => {
@@ -170,7 +254,7 @@ export const SaleFormPage: React.FC = () => {
         }
     };
 
-    const handleFormSubmitAndPrint = (data: any) => {
+    const handleFormSubmitAndPrint = (data: SaleFormData) => {
         const payload = buildPayload(data, cashSessionId);
 
         const submit = async (code?: string) => {
@@ -215,49 +299,22 @@ export const SaleFormPage: React.FC = () => {
                     <Card>
                         <FormSection
                             title="Método de Pago"
-                            description="Selecciona cómo se realizará el cobro"
+                            description="Selecciona uno o varios métodos de cobro"
                             icon={CreditCard}
                             iconBg="bg-brand/10"
                             iconColor="text-brand"
                         >
-                            <Controller
-                                name="payment_type"
-                                control={control}
-                                render={({ field }) => (
-                                    <div
-                                        className="flex flex-wrap gap-2"
-                                        role="radiogroup"
-                                        aria-label="Método de pago"
-                                    >
-                                        {PAYMENT_OPTIONS.map((opt) => {
-                                            const Icon = opt.icon;
-                                            const isActive = field.value === opt.value;
-                                            return (
-                                                <button
-                                                    key={opt.value}
-                                                    type="button"
-                                                    role="radio"
-                                                    aria-checked={isActive}
-                                                    onClick={() => field.onChange(opt.value)}
-                                                    className={[
-                                                        'flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border-2 transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/50',
-                                                        isActive
-                                                            ? opt.activeClass
-                                                            : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50',
-                                                    ].join(' ')}
-                                                >
-                                                    <Icon
-                                                        size={15}
-                                                        className={isActive ? opt.iconClass : ''}
-                                                        aria-hidden
-                                                    />
-                                                    {opt.label}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                            />
+                            <div
+                                className="flex flex-wrap gap-2"
+                                role="group"
+                                aria-label="Métodos de pago"
+                            >
+                                <PaymentOptions
+                                    watchedPaymentType={watchedPaymentType}
+                                    selectedMethods={selectedMethods}
+                                    handleToggleMethod={handleToggleMethod}
+                                />
+                            </div>
                         </FormSection>
                     </Card>
 
@@ -371,6 +428,18 @@ export const SaleFormPage: React.FC = () => {
                         )}
                     </Card>
 
+                    {/* Split amount inputs */}
+                    {watchedPaymentType === 'mixed' && (
+                        <Card>
+                            <PaymentSplitAmount
+                                watchedPaymentSplit={watchedPaymentSplit}
+                                handleSplitAmountChange={handleSplitAmountChange}
+                                remainingAmount={remainingAmount}
+                                isSplitValid={isSplitValid}
+                            />
+                        </Card>
+                    )}
+
                     {/* ── ORDER SUMMARY ─────────────────────────────────────── */}
                     <Card>
                         <div className="flex items-center gap-2.5 mb-5 pb-3 border-b border-slate-100">
@@ -474,7 +543,7 @@ export const SaleFormPage: React.FC = () => {
                             <Button
                                 type="submit"
                                 isLoading={isLoading || isSubmitting}
-                                disabled={isLoading || isSubmitting}
+                                disabled={isLoading || isSubmitting || !isSplitValid}
                                 className="w-full sm:w-auto gap-2 min-w-[180px]"
                             >
                                 <BadgeCheck size={15} />
@@ -484,7 +553,7 @@ export const SaleFormPage: React.FC = () => {
                                 type="button"
                                 onClick={handleSubmit(handleFormSubmitAndPrint)}
                                 isLoading={isLoading || isSubmitting}
-                                disabled={isLoading || isSubmitting}
+                                disabled={isLoading || isSubmitting || !isSplitValid}
                                 className="w-full sm:w-auto gap-2 min-w-[200px] bg-emerald-600 hover:bg-emerald-700 border-emerald-600"
                             >
                                 <Printer size={15} />

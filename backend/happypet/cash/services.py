@@ -6,7 +6,7 @@ from django.db import transaction
 from django.utils import timezone
 from django.db import models
 
-from happypet.products.constants import SAILE_STATUS_CANCELLED
+from happypet.products.constants import SAILE_STATUS_CANCELLED, PAYMENT_MIXED
 from .constants import PAYMENT_CASH
 from .models import CashRegister, CashSession, CashMovement, CashSessionClosure
 
@@ -155,6 +155,18 @@ class CashSessionService:
             or Decimal("0.00")
         )
         total += cash_sales
+
+        # Partial cash from mixed payments also enters the cash box.
+        mixed_cash = Decimal("0.00")
+        for sale in (
+            session.sales.filter(payment_type=PAYMENT_MIXED)
+            .exclude(status=SAILE_STATUS_CANCELLED)
+            .iterator()
+        ):
+            for entry in sale.payment_split or []:
+                if entry.get("method") == PAYMENT_CASH:
+                    mixed_cash += Decimal(str(entry.get("amount", 0)))
+        total += mixed_cash
 
         income = session.movements.filter(type=CashMovement.TYPE_INCOME).exclude(
             reason__startswith="Venta #"

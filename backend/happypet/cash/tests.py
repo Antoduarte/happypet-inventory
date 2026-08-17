@@ -1,11 +1,19 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 from decimal import Decimal
 
 from django.test import TestCase
 from django.utils import timezone
 from django.contrib.auth import get_user_model
 
-from happypet.cash.models import CashRegister, CashSession, CashMovement
+from happypet.cash.models import CashRegister, CashSession, CashMovement, GeneralMovement
+from happypet.sales.models import Sale
+from happypet.products.constants import (
+    PAYMENT_CASH,
+    PAYMENT_CARD,
+    PAYMENT_MIXED,
+    SAILE_STATUS_COMPLETED,
+    SAILE_STATUS_CANCELLED,
+)
 
 User = get_user_model()
 
@@ -302,3 +310,561 @@ class CashSessionActiveEndpointTests(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIsNone(response.json()["id"])
+
+
+class GeneralMovementPermissionTests(TestCase):
+    """Integration tests for GeneralMovement permissions and soft delete."""
+
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            email="admin@test.com",
+            password="testpass",
+            role="admin",
+        )
+        self.manager = User.objects.create_user(
+            email="manager@test.com",
+            password="testpass",
+            role="manager",
+        )
+        self.cashier = User.objects.create_user(
+            email="cashier@test.com",
+            password="testpass",
+            role="cashier",
+        )
+
+    def _payload(self):
+        return {
+            "type": GeneralMovement.TYPE_EXPENSE,
+            "name": "Pago proveedor",
+            "description": "Pago de alimento",
+            "amount": "150.00",
+            "date": "2026-08-10",
+            "payment_method": GeneralMovement.PAYMENT_CASH,
+        }
+
+    def test_admin_can_create(self):
+        from rest_framework.test import APIClient
+        from rest_framework import status
+
+        client = APIClient()
+        client.force_authenticate(user=self.admin)
+        response = client.post("/api/general-movements/", self._payload(), format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.json()["created_by_name"], self.admin.name)
+
+    def test_manager_cannot_create(self):
+        from rest_framework.test import APIClient
+        from rest_framework import status
+
+        client = APIClient()
+        client.force_authenticate(user=self.manager)
+        response = client.post("/api/general-movements/", self._payload(), format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_cashier_cannot_access(self):
+        from rest_framework.test import APIClient
+        from rest_framework import status
+
+        client = APIClient()
+        client.force_authenticate(user=self.cashier)
+        response = client.get("/api/general-movements/")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_manager_can_list_and_retrieve(self):
+        from rest_framework.test import APIClient
+        from rest_framework import status
+
+        movement = GeneralMovement.objects.create(
+            type=GeneralMovement.TYPE_INCOME,
+            name="Ingreso varios",
+            amount=Decimal("100.00"),
+            date="2026-08-01",
+            payment_method=GeneralMovement.PAYMENT_TRANSFER,
+            created_by=self.admin,
+        )
+
+        client = APIClient()
+        client.force_authenticate(user=self.manager)
+
+        list_response = client.get("/api/general-movements/")
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(list_response.json()["results"]), 1)
+
+        detail_response = client.get(f"/api/general-movements/{movement.id}/")
+        self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(detail_response.json()["name"], "Ingreso varios")
+
+    def test_admin_can_update(self):
+        from rest_framework.test import APIClient
+        from rest_framework import status
+
+        movement = GeneralMovement.objects.create(
+            type=GeneralMovement.TYPE_EXPENSE,
+            name="Pago inicial",
+            amount=Decimal("50.00"),
+            date="2026-08-01",
+            payment_method=GeneralMovement.PAYMENT_CASH,
+            created_by=self.admin,
+        )
+
+        client = APIClient()
+        client.force_authenticate(user=self.admin)
+        response = client.patch(
+            f"/api/general-movements/{movement.id}/",
+            {"name": "Pago actualizado"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        movement.refresh_from_db()
+        self.assertEqual(movement.name, "Pago actualizado")
+
+    def test_manager_cannot_update(self):
+        from rest_framework.test import APIClient
+        from rest_framework import status
+
+        movement = GeneralMovement.objects.create(
+            type=GeneralMovement.TYPE_EXPENSE,
+            name="Pago inicial",
+            amount=Decimal("50.00"),
+            date="2026-08-01",
+            payment_method=GeneralMovement.PAYMENT_CASH,
+            created_by=self.admin,
+        )
+
+        client = APIClient()
+        client.force_authenticate(user=self.manager)
+        response = client.patch(
+            f"/api/general-movements/{movement.id}/",
+            {"name": "Pago actualizado"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_admin_soft_delete(self):
+        from rest_framework.test import APIClient
+        from rest_framework import status
+
+        movement = GeneralMovement.objects.create(
+            type=GeneralMovement.TYPE_EXPENSE,
+            name="Pago a eliminar",
+            amount=Decimal("75.00"),
+            date="2026-08-01",
+            payment_method=GeneralMovement.PAYMENT_CARD,
+            created_by=self.admin,
+        )
+
+        client = APIClient()
+        client.force_authenticate(user=self.admin)
+        response = client.delete(f"/api/general-movements/{movement.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        movement.refresh_from_db()
+        self.assertFalse(movement.is_active)
+        self.assertIsNotNone(movement.deleted_at)
+
+    def test_deleted_movement_not_listed(self):
+        from rest_framework.test import APIClient
+        from rest_framework import status
+
+        GeneralMovement.objects.create(
+            type=GeneralMovement.TYPE_EXPENSE,
+            name="Pago eliminado",
+            amount=Decimal("30.00"),
+            date="2026-08-01",
+            payment_method=GeneralMovement.PAYMENT_CASH,
+            created_by=self.admin,
+            is_active=False,
+            deleted_at=timezone.now(),
+        )
+
+        client = APIClient()
+        client.force_authenticate(user=self.admin)
+        response = client.get("/api/general-movements/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.json()["results"]), 0)
+
+    def test_filter_by_type(self):
+        from rest_framework.test import APIClient
+        from rest_framework import status
+
+        GeneralMovement.objects.create(
+            type=GeneralMovement.TYPE_INCOME,
+            name="Ingreso 1",
+            amount=Decimal("100.00"),
+            date="2026-08-01",
+            payment_method=GeneralMovement.PAYMENT_CASH,
+            created_by=self.admin,
+        )
+        GeneralMovement.objects.create(
+            type=GeneralMovement.TYPE_EXPENSE,
+            name="Egreso 1",
+            amount=Decimal("50.00"),
+            date="2026-08-02",
+            payment_method=GeneralMovement.PAYMENT_TRANSFER,
+            created_by=self.admin,
+        )
+
+        client = APIClient()
+        client.force_authenticate(user=self.admin)
+        response = client.get("/api/general-movements/?type=income")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.json()["results"]), 1)
+        self.assertEqual(response.json()["results"][0]["type"], GeneralMovement.TYPE_INCOME)
+
+
+class CashSessionMixedPaymentTests(TestCase):
+    """Tests that mixed-payment cash portions affect the expected box balance."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="admin@test.com",
+            password="testpass",
+            role="admin",
+            name="Admin",
+        )
+        self.register = CashRegister.objects.create(name="Main Register")
+        self.session = CashSession.objects.create(
+            cash_register=self.register,
+            user=self.user,
+            opening_amount=Decimal("100.00"),
+            status=CashSession.STATUS_OPEN,
+        )
+
+    def _make_mixed_sale(self, status=SAILE_STATUS_COMPLETED):
+        sale = Sale.objects.create(
+            status=status,
+            payment_type=PAYMENT_MIXED,
+            total_price=Decimal("240.00"),
+            subtotal=Decimal("240.00"),
+            quantity=1,
+            cash_session=self.session,
+            payment_split=[
+                {"method": PAYMENT_CASH, "amount": "120.00"},
+                {"method": PAYMENT_CARD, "amount": "120.00"},
+            ],
+        )
+        return sale
+
+    def test_expected_amount_includes_only_cash_portion_of_mixed_sale(self):
+        from happypet.cash.services import CashSessionService
+
+        self._make_mixed_sale()
+        expected = CashSessionService._calculate_expected_amount(self.session)
+        # Opening 100 + cash portion 120; card portion does not enter the box.
+        self.assertEqual(expected, Decimal("220.00"))
+
+    def test_cancelled_mixed_sale_does_not_affect_expected_amount(self):
+        from happypet.cash.services import CashSessionService
+
+        self._make_mixed_sale(status=SAILE_STATUS_CANCELLED)
+        expected = CashSessionService._calculate_expected_amount(self.session)
+        self.assertEqual(expected, Decimal("100.00"))
+
+    def test_cash_session_report_redistributes_mixed_payment(self):
+        from happypet.cash.serializers import CashSessionReportSerializer
+
+        self._make_mixed_sale()
+        serializer = CashSessionReportSerializer(self.session)
+        data = serializer.data
+        self.assertEqual(data["cash_sales_total"], Decimal("120.00"))
+        self.assertEqual(data["card_sales_total"], Decimal("120.00"))
+        self.assertEqual(data["transfer_sales_total"], Decimal("0.00"))
+        self.assertEqual(data["sales_total"], Decimal("240.00"))
+
+
+class GeneralMovementSummaryTests(TestCase):
+    """Tests for the aggregated summary endpoint of general movements."""
+
+    def setUp(self):
+        from rest_framework.test import APIClient
+
+        self.admin = User.objects.create_user(
+            email="admin@test.com",
+            password="testpass",
+            role="admin",
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.admin)
+
+    def _create(self, movement_type, amount, date, payment_method):
+        return GeneralMovement.objects.create(
+            type=movement_type,
+            name=f"{movement_type}-{amount}",
+            amount=Decimal(amount),
+            date=date,
+            payment_method=payment_method,
+            created_by=self.admin,
+        )
+
+    def test_summary_aggregates_totals_balance_and_count(self):
+        from rest_framework import status
+
+        self._create(GeneralMovement.TYPE_INCOME, "500.00", "2026-08-01", GeneralMovement.PAYMENT_CASH)
+        self._create(GeneralMovement.TYPE_INCOME, "300.00", "2026-08-02", GeneralMovement.PAYMENT_CARD)
+        self._create(GeneralMovement.TYPE_EXPENSE, "200.00", "2026-08-03", GeneralMovement.PAYMENT_TRANSFER)
+
+        response = self.client.get("/api/general-movements/summary/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertEqual(data["total_income"], "800.00")
+        self.assertEqual(data["total_expense"], "200.00")
+        self.assertEqual(data["balance"], "600.00")
+        self.assertEqual(data["count"], 3)
+
+    def test_summary_breaks_down_by_payment_method(self):
+        from rest_framework import status
+
+        self._create(GeneralMovement.TYPE_INCOME, "100.00", "2026-08-01", GeneralMovement.PAYMENT_CASH)
+        self._create(GeneralMovement.TYPE_INCOME, "50.00", "2026-08-02", GeneralMovement.PAYMENT_CARD)
+
+        response = self.client.get("/api/general-movements/summary/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        by_payment = {row["type"]: row["total"] for row in response.json()["by_payment"]}
+        self.assertEqual(by_payment["cash"], "100.00")
+        self.assertEqual(by_payment["card"], "50.00")
+        self.assertEqual(by_payment["transfer"], "0.00")
+
+    def test_summary_respects_filters(self):
+        from rest_framework import status
+
+        self._create(GeneralMovement.TYPE_INCOME, "100.00", "2026-08-01", GeneralMovement.PAYMENT_CASH)
+        self._create(GeneralMovement.TYPE_EXPENSE, "75.00", "2026-08-05", GeneralMovement.PAYMENT_CASH)
+        self._create(GeneralMovement.TYPE_EXPENSE, "25.00", "2026-08-10", GeneralMovement.PAYMENT_CARD)
+
+        response = self.client.get(
+            "/api/general-movements/summary/?date_from=2026-08-01&date_to=2026-08-06&type=expense"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertEqual(data["total_income"], "0.00")
+        self.assertEqual(data["total_expense"], "75.00")
+        self.assertEqual(data["count"], 1)
+
+    def test_summary_returns_period_rows(self):
+        from rest_framework import status
+
+        self._create(GeneralMovement.TYPE_INCOME, "100.00", "2026-08-01", GeneralMovement.PAYMENT_CASH)
+        self._create(GeneralMovement.TYPE_EXPENSE, "40.00", "2026-08-01", GeneralMovement.PAYMENT_CARD)
+
+        response = self.client.get("/api/general-movements/summary/?granularity=day")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        by_period = response.json()["by_period"]
+        self.assertEqual(len(by_period), 1)
+        self.assertEqual(by_period[0]["period"], "2026-08-01")
+        self.assertEqual(by_period[0]["income"], "100.00")
+        self.assertEqual(by_period[0]["expense"], "40.00")
+
+
+class CashSessionClosedHistoryTests(TestCase):
+    """Tests para el historial de cajas cerradas (solo lectura, admin/manager)."""
+
+    def setUp(self):
+        from rest_framework.test import APIClient
+
+        self.admin = User.objects.create_user(
+            email="admin@test.com", password="testpass", role="admin", name="Admin"
+        )
+        self.manager = User.objects.create_user(
+            email="manager@test.com", password="testpass", role="manager", name="Manager"
+        )
+        self.cashier = User.objects.create_user(
+            email="cashier@test.com", password="testpass", role="cashier", name="Cajero"
+        )
+        self.register = CashRegister.objects.create(name="Caja Principal", is_active=True)
+        self.client = APIClient()
+
+    def _closed_session(self, user, **kwargs):
+        return CashSession.objects.create(
+            cash_register=self.register,
+            user=user,
+            opening_amount=Decimal("100.00"),
+            status=CashSession.STATUS_CLOSED,
+            counted_amount=Decimal("200.00"),
+            difference=Decimal("0.00"),
+            expected_amount=Decimal("200.00"),
+            **kwargs,
+        )
+
+    def test_cashier_cannot_list_closed(self):
+        from rest_framework import status
+
+        self.client.force_authenticate(user=self.cashier)
+        response = self.client.get("/api/cash-sessions/closed/")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_admin_lists_closed_sessions_with_totals(self):
+        from rest_framework import status
+
+        session = self._closed_session(self.cashier, closed_at=timezone.now())
+        Sale.objects.create(
+            status=SAILE_STATUS_COMPLETED,
+            payment_type=PAYMENT_CASH,
+            total_price=Decimal("150.00"),
+            subtotal=Decimal("150.00"),
+            quantity=1,
+            cash_session=session,
+        )
+        Sale.objects.create(
+            status=SAILE_STATUS_CANCELLED,
+            payment_type=PAYMENT_CASH,
+            total_price=Decimal("999.00"),
+            subtotal=Decimal("999.00"),
+            quantity=1,
+            cash_session=session,
+        )
+
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get("/api/cash-sessions/closed/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        results = response.json()["results"]
+        self.assertEqual(len(results), 1)
+        row = results[0]
+        self.assertEqual(row["cash_register_name"], "Caja Principal")
+        self.assertEqual(row["user_name"], "Cajero")
+        self.assertEqual(row["sales_count"], 1)
+        self.assertEqual(row["sales_total"], "150.00")
+
+    def test_manager_can_list_closed(self):
+        from rest_framework import status
+
+        self._closed_session(self.cashier, closed_at=timezone.now())
+        self.client.force_authenticate(user=self.manager)
+        response = self.client.get("/api/cash-sessions/closed/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.json()["results"]), 1)
+
+    def test_filter_by_opened_date(self):
+        from rest_framework import status
+
+        session_a = self._closed_session(self.cashier)
+        CashSession.objects.filter(pk=session_a.pk).update(
+            opened_at=timezone.make_aware(datetime(2026, 8, 1, 9, 0)),
+            closed_at=timezone.make_aware(datetime(2026, 8, 1, 18, 0)),
+        )
+        session_b = self._closed_session(self.cashier)
+        CashSession.objects.filter(pk=session_b.pk).update(
+            opened_at=timezone.make_aware(datetime(2026, 8, 5, 9, 0)),
+            closed_at=timezone.make_aware(datetime(2026, 8, 5, 18, 0)),
+        )
+
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get(
+            "/api/cash-sessions/closed/?date_from=2026-08-01&date_to=2026-08-02"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        results = response.json()["results"]
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["opened_at"][:10], "2026-08-01")
+
+    def test_filter_by_user(self):
+        from rest_framework import status
+
+        self._closed_session(self.cashier, closed_at=timezone.now())
+        self._closed_session(self.admin, closed_at=timezone.now())
+
+        self.client.force_authenticate(user=self.manager)
+        response = self.client.get(f"/api/cash-sessions/closed/?user_id={self.cashier.id}")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        results = response.json()["results"]
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["user"], self.cashier.id)
+
+    def test_open_sessions_not_listed(self):
+        from rest_framework import status
+
+        self._closed_session(self.cashier, closed_at=timezone.now())
+        CashSession.objects.create(
+            cash_register=self.register,
+            user=self.cashier,
+            opening_amount=Decimal("50.00"),
+            status=CashSession.STATUS_OPEN,
+        )
+
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get("/api/cash-sessions/closed/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.json()["results"]), 1)
+
+    def test_cashier_cannot_list_users(self):
+        from rest_framework import status
+
+        self.client.force_authenticate(user=self.cashier)
+        response = self.client.get("/api/cash-sessions/users/")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_users_endpoint_returns_session_users(self):
+        from rest_framework import status
+
+        self._closed_session(self.cashier, closed_at=timezone.now())
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get("/api/cash-sessions/users/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        ids = [user["id"] for user in response.json()]
+        self.assertIn(self.cashier.id, ids)
+
+    def test_sales_detail_can_filter_by_cash_session(self):
+        from rest_framework import status
+
+        session = self._closed_session(self.cashier, closed_at=timezone.now())
+        Sale.objects.create(
+            status=SAILE_STATUS_COMPLETED,
+            payment_type=PAYMENT_CASH,
+            total_price=Decimal("80.00"),
+            subtotal=Decimal("80.00"),
+            quantity=1,
+            cash_session=session,
+        )
+
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get(
+            "/api/reports/sales/detail/",
+            {"cash_session_id": session.id},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        results = response.json()["results"]
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["total_price"], "80.00")
+
+    def test_auto_closed_session_report_recalculates_expected_amount(self):
+        """Cierres automáticos: expected se recalcula y counted/difference van como null."""
+        from rest_framework import status
+
+        session = CashSession.objects.create(
+            cash_register=self.register,
+            user=self.cashier,
+            opening_amount=Decimal("100.00"),
+            status=CashSession.STATUS_CLOSED,
+            closed_at=timezone.now(),
+        )
+        Sale.objects.create(
+            status=SAILE_STATUS_COMPLETED,
+            payment_type=PAYMENT_CASH,
+            total_price=Decimal("150.00"),
+            subtotal=Decimal("150.00"),
+            quantity=1,
+            cash_session=session,
+        )
+
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get(f"/api/cash-sessions/{session.id}/report/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertEqual(Decimal(str(data["expected_amount"])), Decimal("250.00"))
+        self.assertIsNone(data["counted_amount"])
+        self.assertIsNone(data["difference"])

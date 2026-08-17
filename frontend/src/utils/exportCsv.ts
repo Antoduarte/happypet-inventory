@@ -1,3 +1,4 @@
+import { getPaymentTypeLabel, formatPaymentSplit } from './payment';
 import type { SaleDetailRow } from '../interfaces/report';
 
 /** Escapes a value for safe inclusion in a CSV cell. */
@@ -24,14 +25,6 @@ const downloadCsv = (content: string, filename: string): void => {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-};
-
-const PAYMENT_LABELS: Record<string, string> = {
-    cash: 'Efectivo',
-    card: 'Tarjeta',
-    transfer: 'Transferencia',
-    qr: 'QR',
-    credit: 'Crédito',
 };
 
 const itemTypeLabel = (type: string, isSupply: boolean): string => {
@@ -66,6 +59,7 @@ export const exportSalesDetailCsv = (rows: SaleDetailRow[], start: string, end: 
         'Hora',
         'Vendedor',
         'Pago',
+        'Desglose Pago',
         'Tipo',
         'Detalle',
         'Cantidad',
@@ -75,13 +69,18 @@ export const exportSalesDetailCsv = (rows: SaleDetailRow[], start: string, end: 
     ]);
 
     rows.forEach((sale) => {
+        const paymentSplitText =
+            sale.payment_type === 'mixed' && sale.payment_split
+                ? formatPaymentSplit(sale.payment_split)
+                : '';
         sale.items.forEach((item) => {
             csvRows.push([
                 `#${sale.id}`,
                 formatDate(sale.sale_date),
                 formatTime(sale.sale_date),
                 sale.seller_name,
-                PAYMENT_LABELS[sale.payment_type] ?? sale.payment_type,
+                getPaymentTypeLabel(sale.payment_type),
+                paymentSplitText,
                 itemTypeLabel(item.type, item.is_supply),
                 item.name,
                 String(Number(item.quantity)),

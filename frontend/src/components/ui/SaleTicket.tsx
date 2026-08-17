@@ -1,10 +1,7 @@
 import React from 'react';
 import type { Sale, SaleItem } from '../../interfaces/sale';
-import {
-    SALE_TICKET_FOOTER_MESSAGE,
-    SALE_TICKET_BUSINESS_NAME,
-    PAYMENT_LABELS,
-} from './SaleTicket.constants';
+import { SALE_TICKET_FOOTER_MESSAGE, SALE_TICKET_BUSINESS_NAME } from './SaleTicket.constants';
+import { PAYMENT_LABELS } from '../../utils/payment';
 import './SaleTicket.css';
 
 interface SaleTicketProps {
@@ -43,6 +40,16 @@ const SaleTicketHeader: React.FC<{ sale: Sale }> = ({ sale }) => (
         <div className="sale-ticket__meta">
             <span>Método: {PAYMENT_LABELS[sale.payment_type] ?? sale.payment_type}</span>
         </div>
+        {sale.payment_type === 'mixed' && sale.payment_split && sale.payment_split.length > 0 && (
+            <div className="sale-ticket__meta">
+                {sale.payment_split.map((entry) => (
+                    <span key={entry.method}>
+                        &nbsp;&nbsp;{PAYMENT_LABELS[entry.method] ?? entry.method}: C$
+                        {Number(entry.amount).toFixed(2)}
+                    </span>
+                ))}
+            </div>
+        )}
     </div>
 );
 

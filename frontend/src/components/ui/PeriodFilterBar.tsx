@@ -1,10 +1,8 @@
 import React from 'react';
 import { Calendar, CalendarDays, CalendarRange, Clock } from 'lucide-react';
-import { Card } from '../../../components/ui/Card';
-import { TogglePills, type TogglePillOption } from '../../../components/ui/TogglePills';
-import type { ReportGranularity } from '../../../interfaces/report';
-
-export type ReportPreset = 'today' | 'week' | 'month' | 'custom';
+import { Card } from './Card';
+import { TogglePills, type TogglePillOption } from './TogglePills';
+import type { ReportGranularity, ReportPreset } from '../../interfaces/report';
 
 const PRESET_OPTIONS: TogglePillOption<ReportPreset>[] = [
     { value: 'today', label: 'Hoy', icon: Clock },
@@ -30,6 +28,8 @@ interface PeriodFilterBarProps {
     onGranularityChange: (value: ReportGranularity) => void;
     /** Optional extra filter rendered next to the preset pills (e.g. seller filter). */
     sellerFilter?: React.ReactNode;
+    /** Hides the "Agrupar por" granularity picker (used when no aggregation applies). */
+    hideGranularity?: boolean;
 }
 
 const dateInputClass =
@@ -46,6 +46,7 @@ export const PeriodFilterBar: React.FC<PeriodFilterBarProps> = ({
     granularity,
     onGranularityChange,
     sellerFilter,
+    hideGranularity = false,
 }) => {
     const isCustom = preset === 'custom';
 
@@ -83,16 +84,20 @@ export const PeriodFilterBar: React.FC<PeriodFilterBarProps> = ({
                                 className={dateInputClass}
                             />
                         </div>
-                        <TogglePills<ReportGranularity>
-                            label="Agrupar por"
-                            size="sm"
-                            options={GRANULARITY_OPTIONS}
-                            value={granularity}
-                            onChange={onGranularityChange}
-                        />
+                        {!hideGranularity && (
+                            <TogglePills<ReportGranularity>
+                                label="Agrupar por"
+                                size="sm"
+                                options={GRANULARITY_OPTIONS}
+                                value={granularity}
+                                onChange={onGranularityChange}
+                            />
+                        )}
                     </div>
                 )}
             </div>
         </Card>
     );
 };
+
+export default PeriodFilterBar;

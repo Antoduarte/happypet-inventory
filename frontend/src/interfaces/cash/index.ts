@@ -19,7 +19,7 @@ export type CashSessionStatus = 'open' | 'suspended' | 'closed';
 
 export type MovementType = 'income' | 'expense';
 
-export type PaymentMethod = 'cash' | 'card' | 'transfer' | 'qr' | 'credit';
+export type PaymentMethod = 'cash' | 'card' | 'transfer' | 'credit';
 
 export interface CashRegister {
     id: number;
@@ -28,6 +28,8 @@ export interface CashRegister {
     is_active: boolean;
     created_at: string;
 }
+
+import type { ReportGranularity } from '../report';
 
 export interface CashMovement {
     id: number;
@@ -90,11 +92,41 @@ export interface CashSessionReport {
     cash_sales_total: string;
     card_sales_total: string;
     transfer_sales_total: string;
-    qr_sales_total: string;
     credit_sales_total: string;
     income_total: string;
     expense_total: string;
     movements_count: number;
+}
+
+/** Fila del historial de cajas cerradas. */
+export interface ClosedCashSessionListItem {
+    id: number;
+    cash_register: number;
+    cash_register_name: string;
+    user: number;
+    user_name: string;
+    opening_amount: string;
+    expected_amount: string;
+    counted_amount: string | null;
+    difference: string | null;
+    status: CashSessionStatus;
+    opened_at: string;
+    closed_at: string | null;
+    sales_count: number;
+    sales_total: string;
+}
+
+export interface ClosedCashSessionParams {
+    page?: number;
+    page_size?: number;
+    date_from?: string;
+    date_to?: string;
+    user_id?: number;
+}
+
+export interface CashSessionUserOption {
+    id: number;
+    name: string;
 }
 
 export interface OpenSessionPayload {
@@ -116,4 +148,80 @@ export interface CreateMovementPayload {
 
 export interface CashRegisterQueryParams {
     is_active?: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// General Movements (ingresos/egresos generales del negocio)
+// ---------------------------------------------------------------------------
+
+export type GeneralMovementType = 'income' | 'expense';
+
+export type GeneralMovementPaymentMethod = 'cash' | 'card' | 'transfer';
+
+export interface GeneralMovement {
+    id: number;
+    type: GeneralMovementType;
+    type_display: string;
+    name: string;
+    description: string;
+    amount: string;
+    date: string;
+    payment_method: GeneralMovementPaymentMethod;
+    payment_method_display: string;
+    is_active: boolean;
+    created_by: number;
+    created_by_name: string;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface CreateGeneralMovementPayload {
+    type: GeneralMovementType;
+    name: string;
+    description?: string | null;
+    amount: string;
+    date: string;
+    payment_method: GeneralMovementPaymentMethod;
+}
+
+export type UpdateGeneralMovementPayload = CreateGeneralMovementPayload;
+
+export interface GeneralMovementQueryParams {
+    page?: number;
+    page_size?: number;
+    search?: string;
+    ordering?: string;
+    type?: GeneralMovementType;
+    payment_method?: GeneralMovementPaymentMethod;
+    date_from?: string;
+    date_to?: string;
+}
+
+export interface GeneralMovementSummaryParams {
+    date_from?: string;
+    date_to?: string;
+    type?: GeneralMovementType;
+    payment_method?: GeneralMovementPaymentMethod;
+    granularity?: ReportGranularity;
+}
+
+export interface GeneralMovementPaymentRow {
+    type: string;
+    label: string;
+    total: string;
+}
+
+export interface GeneralMovementPeriodPoint {
+    period: string;
+    income: string;
+    expense: string;
+}
+
+export interface GeneralMovementSummary {
+    total_income: string;
+    total_expense: string;
+    balance: string;
+    count: number;
+    by_payment: GeneralMovementPaymentRow[];
+    by_period: GeneralMovementPeriodPoint[];
 }

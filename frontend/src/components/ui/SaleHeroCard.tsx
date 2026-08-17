@@ -1,16 +1,9 @@
 import React from 'react';
-import { Receipt, CreditCard, Banknote, ArrowLeftRight, Wallet } from 'lucide-react';
+import { Receipt } from 'lucide-react';
 import type { Sale } from '../../interfaces/sale';
 import { Card } from './Card';
 import { StatusBanner } from './StatusBanner';
-
-const PAYMENT_LABELS: Record<string, string> = {
-    cash: 'Efectivo',
-    card: 'Tarjeta',
-    transfer: 'Transferencia',
-    qr: 'QR',
-    credit: 'Crédito',
-};
+import { PAYMENT_LABELS, PAYMENT_ICONS } from '../../utils/payment';
 
 interface SaleHeroCardProps {
     sale: Sale;
@@ -18,18 +11,11 @@ interface SaleHeroCardProps {
 
 export const SaleHeroCard: React.FC<SaleHeroCardProps> = ({ sale }) => {
     const paymentIcon = () => {
-        switch (sale.payment_type) {
-            case 'cash':
-                return <Banknote size={18} className="text-emerald-600" />;
-            case 'card':
-                return <CreditCard size={18} className="text-brand" />;
-            case 'transfer':
-                return <ArrowLeftRight size={18} className="text-violet-600" />;
-            case 'credit':
-                return <Wallet size={18} className="text-amber-500" />;
-            default:
-                return <CreditCard size={18} className="text-slate-400" />;
+        const Icon = PAYMENT_ICONS[sale.payment_type];
+        if (!Icon) {
+            return null;
         }
+        return <Icon size={18} className="text-brand" />;
     };
 
     return (

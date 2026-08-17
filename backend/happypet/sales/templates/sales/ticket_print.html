@@ -88,6 +88,11 @@
       <div class="text-wrap">
         <strong>Fecha:</strong> {{ sale_date }}<br />
         <strong>Método:</strong> {{ payment_type }}
+        {% if payment_split %}
+        {% for split in payment_split %}
+       {{ split.method }}: C${{ split.amount }}
+        {% endfor %}
+        {% endif %}
       </div>
     </div>
 

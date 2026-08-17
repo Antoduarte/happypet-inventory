@@ -165,3 +165,55 @@ class CashMovement(models.Model):
 
     def __str__(self):
         return f"{self.get_type_display()} #{self.pk}: {self.amount}"
+
+
+class GeneralMovement(models.Model):
+    """
+    Ingresos y egresos generales del negocio que no están atados a una sesión de caja.
+    Ejemplos: pago a proveedores, ingresos por conceptos diversos, etc.
+    """
+
+    TYPE_INCOME = "income"
+    TYPE_EXPENSE = "expense"
+
+    TYPE_CHOICES = [
+        (TYPE_INCOME, "Ingreso"),
+        (TYPE_EXPENSE, "Egreso"),
+    ]
+
+    PAYMENT_CASH = "cash"
+    PAYMENT_CARD = "card"
+    PAYMENT_TRANSFER = "transfer"
+
+    PAYMENT_CHOICES = [
+        (PAYMENT_CASH, "Efectivo"),
+        (PAYMENT_CARD, "Tarjeta"),
+        (PAYMENT_TRANSFER, "Transferencia"),
+    ]
+
+    type = models.CharField(max_length=10, choices=TYPE_CHOICES)
+    name = models.CharField(max_length=150)
+    description = models.TextField(blank=True, default="")
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    date = models.DateField()
+    payment_method = models.CharField(max_length=20, choices=PAYMENT_CHOICES)
+    is_active = models.BooleanField(default=True)
+    deleted_at = models.DateTimeField(blank=True, null=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="general_movements",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-date", "-created_at"]
+        indexes = [
+            models.Index(fields=["type", "date"]),
+            models.Index(fields=["is_active", "date"]),
+            models.Index(fields=["payment_method", "date"]),
+        ]
+
+    def __str__(self):
+        return f"{self.get_type_display()} #{self.pk}: {self.name} - {self.amount}"

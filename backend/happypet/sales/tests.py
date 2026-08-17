@@ -889,3 +889,232 @@ class CashierCreditSaleAuthorizationTests(APITestCase):
         response = self.client.post("/api/sales/", self._payload(), format="json")
         self.assertEqual(response.status_code, 201)
 
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Payment split tests
+# ──────────────────────────────────────────────────────────────────────────────
+
+from happypet.products.constants import PAYMENT_MIXED, PAYMENT_TRANSFER
+
+
+class PaymentSplitServiceTests(TestCase):
+    """Tests for mixed payment creation and cash movement handling."""
+
+    def setUp(self):
+        self.category = Category.objects.create(name="Test Cat", type="product")
+        self.product = Product.objects.create(
+            name="Test Product",
+            category=self.category,
+            stock=Decimal("100.0000"),
+            base_unit="u",
+            price=Decimal("25.00"),
+        )
+        self.user = User.objects.create_user(
+            email="admin@test.com", password="testpass", role="admin"
+        )
+        self.register = CashRegister.objects.create(name="Main Register")
+        self.session = CashSession.objects.create(
+            cash_register=self.register,
+            user=self.user,
+            opening_amount=Decimal("100.00"),
+            status=CashSession.STATUS_OPEN,
+        )
+        self.service = SaleService()
+
+    def test_create_mixed_payment_sale_stores_split(self):
+        sale = self.service.create_sale(
+            {
+                "payment_type": PAYMENT_MIXED,
+                "items": [
+                    {
+                        "product": self.product,
+                        "type": SALE_ITEM_PRODUCT,
+                        "quantity": 2,
+                    }
+                ],
+                "payment_split": [
+                    {"method": PAYMENT_CASH, "amount": Decimal("30.00")},
+                    {"method": PAYMENT_CARD, "amount": Decimal("20.00")},
+                ],
+            },
+            cash_session=self.session,
+        )
+        self.assertEqual(sale.payment_type, PAYMENT_MIXED)
+        self.assertEqual(sale.total_price, Decimal("50.00"))
+        self.assertEqual(len(sale.payment_split), 2)
+
+    def test_create_mixed_payment_sale_sum_mismatch_raises(self):
+        with self.assertRaisesMessage(ValidationError, "no coincide"):
+            self.service.create_sale(
+                {
+                    "payment_type": PAYMENT_MIXED,
+                    "items": [
+                        {
+                            "product": self.product,
+                            "type": SALE_ITEM_PRODUCT,
+                            "quantity": 1,
+                        }
+                    ],
+                    "payment_split": [
+                        {"method": PAYMENT_CASH, "amount": Decimal("20.00")},
+                        {"method": PAYMENT_CARD, "amount": Decimal("20.00")},
+                    ],
+                }
+            )
+
+
+class PaymentSplitCashMovementTests(TestCase):
+    """Tests that mixed payments only create CashMovement for the cash portion."""
+
+    def setUp(self):
+        self.category = Category.objects.create(name="Test Cat", type="product")
+        self.product = Product.objects.create(
+            name="Test Product",
+            category=self.category,
+            stock=Decimal("100.0000"),
+            base_unit="u",
+            price=Decimal("50.00"),
+        )
+        self.user = User.objects.create_user(
+            email="admin@test.com", password="testpass", role="admin"
+        )
+        self.register = CashRegister.objects.create(name="Main Register")
+        self.session = CashSession.objects.create(
+            cash_register=self.register,
+            user=self.user,
+            opening_amount=Decimal("100.00"),
+            status=CashSession.STATUS_OPEN,
+        )
+        self.service = SaleStatusService()
+
+    def _create_mixed_sale(self):
+        sale = Sale.objects.create(
+            status=SAILE_STATUS_PENDING,
+            payment_type=PAYMENT_MIXED,
+            total_price=Decimal("50.00"),
+            subtotal=Decimal("50.00"),
+            quantity=1,
+            cash_session=self.session,
+            payment_split=[
+                {"method": PAYMENT_CASH, "amount": "20.00"},
+                {"method": PAYMENT_CARD, "amount": "30.00"},
+            ],
+        )
+        SaleItem.objects.create(
+            sale=sale,
+            type=SALE_ITEM_PRODUCT,
+            product=self.product,
+            quantity=Decimal("1.0000"),
+            price_per_item=Decimal("50.00"),
+            subtotal=Decimal("50.00"),
+            total_price=Decimal("50.00"),
+        )
+        return sale
+
+    def test_complete_mixed_cash_creates_movement_for_cash_portion(self):
+        sale = self._create_mixed_sale()
+        self.service.transition(sale, SAILE_STATUS_COMPLETED, self.user)
+        movement = CashMovement.objects.filter(cash_session=self.session).first()
+        self.assertIsNotNone(movement)
+        self.assertEqual(movement.type, CashMovement.TYPE_INCOME)
+        self.assertEqual(movement.amount, Decimal("20.00"))
+
+    def test_cancel_mixed_cash_creates_expense_for_cash_portion(self):
+        sale = self._create_mixed_sale()
+        sale.status = SAILE_STATUS_COMPLETED
+        sale.save()
+        self.service.transition(sale, SAILE_STATUS_CANCELLED, self.user)
+        movement = CashMovement.objects.filter(
+            cash_session=self.session, type=CashMovement.TYPE_EXPENSE
+        ).first()
+        self.assertIsNotNone(movement)
+        self.assertEqual(movement.amount, Decimal("20.00"))
+
+
+class PaymentSplitSerializerTests(APITestCase):
+    """Tests for mixed payment payload validation."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="admin@test.com", password="testpass", role="admin"
+        )
+        self.client.force_authenticate(user=self.user)
+        self.category = Category.objects.create(name="Test Cat", type="product")
+        self.product = Product.objects.create(
+            name="Test Product",
+            category=self.category,
+            stock=Decimal("10.0000"),
+            base_unit="u",
+            price=Decimal("10.00"),
+        )
+
+    def test_mixed_payment_requires_at_least_two_methods(self):
+        response = self.client.post(
+            "/api/sales/",
+            {
+                "payment_type": PAYMENT_MIXED,
+                "items": [
+                    {
+                        "product_id": self.product.id,
+                        "type": SALE_ITEM_PRODUCT,
+                        "quantity": 1,
+                        "price_per_item": "10.00",
+                    }
+                ],
+                "payment_split": [
+                    {"method": PAYMENT_CASH, "amount": "10.00"},
+                ],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("payment_split", response.json())
+
+    def test_credit_with_split_rejected(self):
+        response = self.client.post(
+            "/api/sales/",
+            {
+                "payment_type": PAYMENT_CREDIT,
+                "items": [
+                    {
+                        "product_id": self.product.id,
+                        "type": SALE_ITEM_PRODUCT,
+                        "quantity": 1,
+                        "price_per_item": "10.00",
+                    }
+                ],
+                "payment_split": [
+                    {"method": PAYMENT_CASH, "amount": "5.00"},
+                    {"method": PAYMENT_CARD, "amount": "5.00"},
+                ],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("payment_split", response.json())
+
+    def test_valid_mixed_payment_creates_sale(self):
+        response = self.client.post(
+            "/api/sales/",
+            {
+                "payment_type": PAYMENT_MIXED,
+                "items": [
+                    {
+                        "product_id": self.product.id,
+                        "type": SALE_ITEM_PRODUCT,
+                        "quantity": 1,
+                        "price_per_item": "10.00",
+                    }
+                ],
+                "payment_split": [
+                    {"method": PAYMENT_CASH, "amount": "4.00"},
+                    {"method": PAYMENT_CARD, "amount": "6.00"},
+                ],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        sale = Sale.objects.latest("id")
+        self.assertEqual(sale.payment_type, PAYMENT_MIXED)
+        self.assertEqual(len(sale.payment_split), 2)
+

@@ -157,8 +157,8 @@ class SalePrintView:
         "cash": "Efectivo",
         "card": "Tarjeta",
         "transfer": "Transferencia",
-        "qr": "QR",
         "credit": "Crédito",
+        "mixed": "Mixto",
     }
 
     def __call__(self, request, pk):
@@ -189,12 +189,21 @@ class SalePrintView:
         discount_amount = (subtotal * Decimal(str(sale.discount_percentage)) / 100).quantize(Decimal("0.01")) if sale.discount_percentage else Decimal("0.00")
         surcharge_amount = (subtotal * Decimal(str(sale.surcharge_percentage)) / 100).quantize(Decimal("0.01")) if sale.surcharge_percentage else Decimal("0.00")
 
+        payment_split_context = [
+            {
+                "method": self.PAYMENT_LABELS.get(entry.get("method"), entry.get("method", "—")),
+                "amount": f"{float(entry.get('amount', 0)):.2f}",
+            }
+            for entry in (sale.payment_split or [])
+        ]
+
         context = {
             "business_name": "HappyPet",
             "footer_message": "¡Gracias por su compra!",
             "sale": sale,
             "sale_date": sale.sale_date.strftime("%d/%m/%Y %H:%M"),
             "payment_type": self.PAYMENT_LABELS.get(sale.payment_type, sale.payment_type or "—"),
+            "payment_split": payment_split_context,
             "ticket_items": ticket_items,
             "discount_amount": f"{float(discount_amount):.2f}",
             "surcharge_amount": f"{float(surcharge_amount):.2f}",

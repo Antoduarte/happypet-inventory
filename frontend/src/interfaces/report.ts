@@ -1,5 +1,7 @@
 export type ReportGranularity = 'day' | 'week' | 'month';
 
+export type ReportPreset = 'today' | 'week' | 'month' | 'custom';
+
 export interface SalesReportParams {
     start?: string; // YYYY-MM-DD
     end?: string; // YYYY-MM-DD
@@ -60,6 +62,7 @@ export interface SaleDetailRow {
     id: number;
     sale_date: string;
     payment_type: string;
+    payment_split?: { method: string; amount: number }[];
     seller_name: string;
     subtotal: string;
     total_price: string;
@@ -72,6 +75,7 @@ export interface SalesDetailParams {
     start?: string;
     end?: string;
     cashier_id?: number;
+    cash_session_id?: number;
     page?: number;
     page_size?: number;
     search?: string;

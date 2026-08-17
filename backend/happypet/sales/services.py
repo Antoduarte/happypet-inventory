@@ -21,6 +21,7 @@ from happypet.products.constants import (
     SALE_ITEM_SERVICE,
     PAYMENT_CASH,
     PAYMENT_CREDIT,
+    PAYMENT_MIXED,
     SAILE_STATUS_PENDING,
     SAILE_STATUS_COMPLETED,
     SAILE_STATUS_CANCELLED,
@@ -54,6 +55,7 @@ class SaleService:
         """Crea una venta completa dentro de una transacción atómica."""
 
         items_data: list[dict] = validated_data.pop("items")
+        payment_split = validated_data.pop("payment_split", [])
 
         has_stock_movements = any(
             item.get("product") and item.get("type", SALE_ITEM_PRODUCT) == SALE_ITEM_PRODUCT
@@ -74,6 +76,10 @@ class SaleService:
             surcharge_percentage=validated_data.get("surcharge_percentage", 0),
             surcharge_reason=validated_data.get("surcharge_reason") or None,
             cash_session=cash_session,
+            payment_split=[
+                {"method": entry["method"], "amount": str(entry["amount"])}
+                for entry in (payment_split or [])
+            ],
         )
 
         # 2. Procesar ítems → calcular totales y descontar stock
@@ -85,6 +91,22 @@ class SaleService:
             sale.discount_percentage,
             sale.surcharge_percentage,
         )
+
+        # 3.5 Validar que el desglose de pago sume el total (si aplica)
+        if sale.payment_type == PAYMENT_MIXED:
+            split_total = sum(
+                Decimal(str(entry.get("amount", 0))) for entry in sale.payment_split
+            )
+            # Permitir pequeña diferencia por redondeo
+            if abs(split_total - grand_total) > Decimal("0.01"):
+                raise ValidationError(
+                    {
+                        "payment_split": (
+                            f"La suma de los montos ({split_total:.2f}) no coincide "
+                            f"con el total de la venta ({grand_total:.2f})."
+                        )
+                    }
+                )
 
         # 4. Persistir cabecera
         sale.subtotal = items_subtotal
@@ -308,9 +330,22 @@ class SaleStatusService:
 
     # ── Complete ─────────────────────────────────────────────────────────────
 
+    def _get_cash_amount(self, sale: Sale) -> Decimal:
+        """Devuelve el monto pagado en efectivo, considerando pago mixto."""
+        if sale.payment_type == PAYMENT_MIXED and sale.payment_split:
+            return sum(
+                Decimal(str(entry.get("amount", 0)))
+                for entry in sale.payment_split
+                if entry.get("method") == PAYMENT_CASH
+            )
+        if sale.payment_type == PAYMENT_CASH:
+            return sale.total_price
+        return Decimal("0.00")
+
     def _complete_sale(self, sale: Sale, user, was_credit: bool = False) -> None:
-        """Crea CashMovement si el pago es en efectivo y hay sesión abierta."""
-        if sale.payment_type != PAYMENT_CASH:
+        """Crea CashMovement si el pago incluye efectivo y hay sesión abierta."""
+        cash_amount = self._get_cash_amount(sale)
+        if cash_amount <= 0:
             return
 
         if was_credit:
@@ -319,14 +354,14 @@ class SaleStatusService:
                 raise ValidationError({"cash_session": "No open cash session found."})
             if sale.cash_session.status != CashSession.STATUS_OPEN:
                 raise ValidationError({"cash_session": "Cash session is not open."})
-            self._create_cash_movement(sale, user)
+            self._create_cash_movement(sale, user, amount=cash_amount)
         else:
             # Backwards-compatible behaviour: only create movement when the sale
             # already has an open cash session linked at creation time.
             if sale.cash_session:
                 if sale.cash_session.status != CashSession.STATUS_OPEN:
                     raise ValidationError({"cash_session": "Cash session is not open."})
-                self._create_cash_movement(sale, user)
+                self._create_cash_movement(sale, user, amount=cash_amount)
 
     def _resolve_cash_session_for_completion(self, sale: Sale, user) -> CashSession | None:
         """Devuelve la sesión de caja activa para registrar el ingreso."""
@@ -340,12 +375,12 @@ class SaleStatusService:
             status=CashSession.STATUS_OPEN,
         ).first()
 
-    def _create_cash_movement(self, sale: Sale, user) -> None:
+    def _create_cash_movement(self, sale: Sale, user, amount: Decimal | None = None) -> None:
         """Registra un CashMovement de tipo income para una venta completada."""
         CashMovement.objects.create(
             cash_session=sale.cash_session,
             type=CashMovement.TYPE_INCOME,
-            amount=sale.total_price,
+            amount=amount if amount is not None else sale.total_price,
             reason=f"Venta #{sale.pk} completada",
             created_by=user,
         )
@@ -372,8 +407,9 @@ class SaleStatusService:
         for item in product_items:
             self._revert_stock_for_item(item, revert_batch)
 
-        # Registra egreso si fue en efectivo y está asociada a una sesión de caja
-        if sale.payment_type == PAYMENT_CASH and sale.cash_session:
+        # Registra egreso si incluye efectivo y está asociada a una sesión de caja
+        cash_amount = self._get_cash_amount(sale)
+        if cash_amount > 0 and sale.cash_session:
             if sale.cash_session.status != CashSession.STATUS_OPEN:
                 raise ValidationError(
                     {"cash_session": "Cash session is not open."}
@@ -381,7 +417,7 @@ class SaleStatusService:
             CashMovement.objects.create(
                 cash_session=sale.cash_session,
                 type=CashMovement.TYPE_EXPENSE,
-                amount=sale.total_price,
+                amount=cash_amount,
                 reason=f"Venta #{sale.pk} cancelada",
                 created_by=user,
             )

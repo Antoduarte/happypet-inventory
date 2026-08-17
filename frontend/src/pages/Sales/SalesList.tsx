@@ -11,15 +11,8 @@ import { useAuth } from '../../hooks/useAuth';
 import { usePermission } from '../../hooks/usePermission';
 import { usePagination } from '../../hooks/usePagination';
 import { reportService } from '../../services/report';
+import { getPaymentTypeLabel } from '../../utils/payment';
 import type { Sale } from '../../interfaces/sale';
-
-/** Maps backend payment_type values to readable Spanish labels. */
-const PAYMENT_LABELS: Record<string, string> = {
-    cash: 'Efectivo',
-    card: 'Tarjeta',
-    transfer: 'Transferencia',
-    credit: 'Crédito',
-};
 
 /** Maps backend status values to readable Spanish labels. */
 const STATUS_LABELS: Record<string, string> = {
@@ -127,7 +120,7 @@ export const SalesList: React.FC = () => {
             sortable: true,
             cell: (item) => (
                 <span className="capitalize text-slate-600">
-                    {PAYMENT_LABELS[item.payment_type] ?? item.payment_type}
+                    {getPaymentTypeLabel(item.payment_type)}
                 </span>
             ),
         },

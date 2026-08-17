@@ -108,25 +108,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         AuthStorageService.setManagerCode(code);
     }, []);
 
-    const updateCashSession = useCallback(
-        (id: number | null, status: CashSessionStatus | null) => {
-            setCashSessionId(id);
-            setCashSessionStatus(status);
-            AuthStorageService.setCashSessionId(id);
-            AuthStorageService.setCashSessionStatus(status);
-            if (user) {
-                const updatedUser = {
-                    ...user,
-                    cashSessionId: id,
-                    cashSessionStatus: status,
-                    hasCashSession: !!id,
-                };
-                setUser(updatedUser);
-                AuthStorageService.setAuthUser(updatedUser);
-            }
-        },
-        [user],
-    );
+    const updateCashSession = useCallback((id: number | null, status: CashSessionStatus | null) => {
+        setCashSessionId(id);
+        setCashSessionStatus(status);
+        AuthStorageService.setCashSessionId(id);
+        AuthStorageService.setCashSessionStatus(status);
+
+        setUser((prevUser) => {
+            if (!prevUser) return null;
+            const updatedUser = {
+                ...prevUser,
+                cashSessionId: id,
+                cashSessionStatus: status,
+                hasCashSession: !!id,
+            };
+            AuthStorageService.setAuthUser(updatedUser);
+            return updatedUser;
+        });
+    }, []);
 
     const value = useMemo(
         () => ({

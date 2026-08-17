@@ -1,10 +1,19 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { cashRegisterService, cashSessionService, cashMovementService } from '../../services/cash';
+import {
+    cashRegisterService,
+    cashSessionService,
+    cashMovementService,
+    generalMovementService,
+} from '../../services/cash';
 import type {
     OpenSessionPayload,
     CloseSessionPayload,
     CreateMovementPayload,
     CashRegisterQueryParams,
+    CreateGeneralMovementPayload,
+    UpdateGeneralMovementPayload,
+    GeneralMovementQueryParams,
+    ClosedCashSessionParams,
 } from '../../interfaces/cash';
 
 export const useCashRegisters = (params?: CashRegisterQueryParams) => {
@@ -53,6 +62,24 @@ export const useSessionClosures = (sessionId: number | null) => {
         queryKey: ['cash-session', 'closures', sessionId],
         queryFn: () => cashSessionService.getSessionClosures(sessionId!),
         enabled: !!sessionId,
+    });
+};
+
+export const useClosedCashSessions = (params?: ClosedCashSessionParams) => {
+    return useQuery({
+        queryKey: ['cash-session', 'closed', params],
+        queryFn: () => cashSessionService.getClosedSessions(params),
+        staleTime: 0,
+        refetchOnMount: 'always',
+        refetchOnWindowFocus: true,
+    });
+};
+
+export const useCashSessionUsers = () => {
+    return useQuery({
+        queryKey: ['cash-session', 'users'],
+        queryFn: () => cashSessionService.getCashSessionUsers(),
+        staleTime: 60_000,
     });
 };
 
@@ -120,3 +147,62 @@ export const useActiveSession = () => {
         refetchOnWindowFocus: true,
     });
 };
+
+export const useGeneralMovements = (params?: GeneralMovementQueryParams) => {
+    return useQuery({
+        queryKey: ['general-movements', params],
+        queryFn: () => generalMovementService.getMovements(params),
+        staleTime: 0,
+        refetchOnMount: 'always',
+        refetchOnWindowFocus: true,
+    });
+};
+
+export const useGeneralMovement = (id: number | null) => {
+    return useQuery({
+        queryKey: ['general-movements', 'detail', id],
+        queryFn: () => generalMovementService.getMovementById(id!),
+        enabled: id !== null,
+        staleTime: 0,
+        refetchOnMount: 'always',
+        refetchOnWindowFocus: true,
+    });
+};
+
+export const useCreateGeneralMovement = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (payload: CreateGeneralMovementPayload) =>
+            generalMovementService.createMovement(payload),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['general-movements'] });
+        },
+    });
+};
+
+export const useUpdateGeneralMovement = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ id, payload }: { id: number; payload: UpdateGeneralMovementPayload }) =>
+            generalMovementService.updateMovement(id, payload),
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['general-movements'] });
+            queryClient.invalidateQueries({
+                queryKey: ['general-movements', 'detail', variables.id],
+            });
+        },
+    });
+};
+
+export const useDeleteGeneralMovement = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (id: number) => generalMovementService.deleteMovement(id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['general-movements'] });
+        },
+    });
+};
+
+export { useGeneralMovementFilters } from './useGeneralMovementFilters';
+export { useGeneralMovementSummary } from './useGeneralMovementSummary';

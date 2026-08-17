@@ -10,7 +10,7 @@
  */
 
 import { useEffect } from 'react';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm, useFieldArray, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import type {
@@ -76,14 +76,72 @@ const serviceItemSchema = z.object({
 /** Discriminated union: product | service */
 const saleItemSchema = z.discriminatedUnion('_kind', [productItemSchema, serviceItemSchema]);
 
-/** Schema ra�z del formulario */
-export const saleFormSchema = z.object({
-    payment_type: z.enum(['cash', 'card', 'transfer', 'credit']),
-    discount_percentage: z.coerce.number().default(0),
-    surcharge_percentage: z.coerce.number().default(0),
-    surcharge_reason: z.string().optional(),
-    items: z.array(saleItemSchema).min(1, 'Agrega al menos un producto o servicio a la venta'),
+/** Un monto dentro del desglose de pago mixto */
+const paymentSplitSchema = z.object({
+    method: z.enum(['cash', 'card', 'transfer']),
+    amount: z.coerce.number().min(0.01, 'El monto debe ser mayor a 0'),
 });
+
+/** Schema ra�z del formulario */
+export const saleFormSchema = z
+    .object({
+        payment_type: z.enum(['cash', 'card', 'transfer', 'mixed', 'credit']),
+        payment_split: z.array(paymentSplitSchema).default([]),
+        discount_percentage: z.coerce.number().default(0),
+        surcharge_percentage: z.coerce.number().default(0),
+        surcharge_reason: z.string().optional(),
+        items: z.array(saleItemSchema).min(1, 'Agrega al menos un producto o servicio a la venta'),
+    })
+    .refine(
+        (data) => {
+            if (data.payment_type === 'mixed') {
+                const methods = data.payment_split.map((p) => p.method);
+                if (new Set(methods).size !== methods.length) return false;
+                if (methods.length < 2) return false;
+            }
+            if (data.payment_type === 'credit' && data.payment_split.length > 0) {
+                return false;
+            }
+            if (data.payment_split.length > 0 && data.payment_type !== 'mixed') {
+                return false;
+            }
+            return true;
+        },
+        {
+            message: 'El desglose de pago no es válido para el método seleccionado.',
+            path: ['payment_split'],
+        },
+    )
+    .superRefine((data, ctx) => {
+        if (data.payment_type !== 'mixed') return;
+
+        const itemsSubtotal = data.items.reduce((acc, item) => {
+            const line = item as {
+                subtotal: number;
+                discount_percentage: number;
+                surcharge_percentage: number;
+            };
+            const sub = Number(line.subtotal) || 0;
+            const disc = Number(line.discount_percentage) || 0;
+            const sur = Number(line.surcharge_percentage) || 0;
+            return acc + calcAdjustedTotal(sub, disc, sur);
+        }, 0);
+
+        const grandTotal = calcAdjustedTotal(
+            itemsSubtotal,
+            data.discount_percentage,
+            data.surcharge_percentage,
+        );
+
+        const splitTotal = data.payment_split.reduce((sum, p) => sum + p.amount, 0);
+        if (Math.abs(splitTotal - grandTotal) > 0.01) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: `La suma de los montos (C$${splitTotal.toFixed(2)}) debe ser igual al total (C$${grandTotal.toFixed(2)}).`,
+                path: ['payment_split'],
+            });
+        }
+    });
 
 // ---------------------------------------------------------------------------
 // Derived types
@@ -151,9 +209,10 @@ export function calcAdjustedTotal(
 
 export function useSaleForm() {
     const form = useForm<SaleFormData>({
-        resolver: zodResolver(saleFormSchema) as any,
+        resolver: zodResolver(saleFormSchema) as Resolver<SaleFormData>,
         defaultValues: {
             payment_type: 'cash',
+            payment_split: [],
             discount_percentage: 0,
             surcharge_percentage: 0,
             surcharge_reason: '',
@@ -237,9 +296,14 @@ export function useSaleForm() {
     // -- Totals calculation -----------------------------------------------------
 
     const itemsSubtotal = (watchedItems ?? []).reduce((acc, item) => {
-        const sub = Number(item?.subtotal) || 0;
-        const disc = Number((item as any)?.discount_percentage) || 0;
-        const sur = Number((item as any)?.surcharge_percentage) || 0;
+        const line = item as {
+            subtotal: number;
+            discount_percentage: number;
+            surcharge_percentage: number;
+        };
+        const sub = Number(line?.subtotal) || 0;
+        const disc = Number(line?.discount_percentage) || 0;
+        const sur = Number(line?.surcharge_percentage) || 0;
         const adjustedItem = calcAdjustedTotal(sub, disc, sur);
 
         // NOTE: supplies (insumos) are excluded from the total � they only deduct stock
@@ -306,6 +370,13 @@ export function useSaleForm() {
             cash_session_id: cashSessionId ?? null,
             items: allItems,
             payment_type: data.payment_type,
+            payment_split:
+                data.payment_type === 'mixed'
+                    ? data.payment_split.map((entry) => ({
+                          method: entry.method,
+                          amount: Number(entry.amount.toFixed(2)),
+                      }))
+                    : undefined,
             discount_percentage: data.discount_percentage as DiscountPercentage,
             surcharge_percentage: data.surcharge_percentage as DiscountPercentage,
             surcharge_reason: data.surcharge_reason || null,

@@ -7,8 +7,8 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from .constants import PAYMENT_METHOD_CHOICES
-from .models import CashRegister, CashSession, CashMovement, CashSessionClosure
-from happypet.products.constants import SAILE_STATUS_CANCELLED
+from .models import CashRegister, CashSession, CashMovement, CashSessionClosure, GeneralMovement
+from happypet.products.constants import SAILE_STATUS_CANCELLED, PAYMENT_MIXED
 from happypet.sales.models import Sale
 
 
@@ -54,7 +54,7 @@ class CashSessionSaleSerializer(serializers.ModelSerializer):
     class Meta:
         from happypet.sales.models import Sale
         model = Sale
-        fields = ["id", "payment_type", "total_price", "status"]
+        fields = ["id", "payment_type", "payment_split", "total_price", "status"]
 
 
 class CashSessionSerializer(serializers.ModelSerializer):
@@ -104,8 +104,6 @@ class CashSessionSerializer(serializers.ModelSerializer):
         ]
 
     def get_expected_amount(self, obj):
-        if obj.status == obj.STATUS_CLOSED:
-            return obj.expected_amount
         from .services import CashSessionService
         return CashSessionService._calculate_expected_amount(obj)
 
@@ -182,12 +180,12 @@ class CashSessionReportSerializer(serializers.ModelSerializer):
     cash_sales_total = serializers.SerializerMethodField()
     card_sales_total = serializers.SerializerMethodField()
     transfer_sales_total = serializers.SerializerMethodField()
-    qr_sales_total = serializers.SerializerMethodField()
     credit_sales_total = serializers.SerializerMethodField()
 
     income_total = serializers.SerializerMethodField()
     expense_total = serializers.SerializerMethodField()
     movements_count = serializers.SerializerMethodField()
+    expected_amount = serializers.SerializerMethodField()
 
     class Meta:
         model = CashSession
@@ -210,12 +208,15 @@ class CashSessionReportSerializer(serializers.ModelSerializer):
             "cash_sales_total",
             "card_sales_total",
             "transfer_sales_total",
-            "qr_sales_total",
             "credit_sales_total",
             "income_total",
             "expense_total",
             "movements_count",
         ]
+
+    def get_expected_amount(self, obj):
+        from .services import CashSessionService
+        return CashSessionService._calculate_expected_amount(obj)
 
     def get_sales_count(self, obj):
         return obj.sales.exclude(status=SAILE_STATUS_CANCELLED).count()
@@ -229,12 +230,22 @@ class CashSessionReportSerializer(serializers.ModelSerializer):
         )
 
     def _get_sales_by_payment(self, obj, payment_type):
-        return (
+        pure = (
             obj.sales.filter(payment_type=payment_type)
             .exclude(status=SAILE_STATUS_CANCELLED)
             .aggregate(total=models.Sum("total_price"))["total"]
             or Decimal("0.00")
         )
+        mixed = Decimal("0.00")
+        for sale in (
+            obj.sales.filter(payment_type=PAYMENT_MIXED)
+            .exclude(status=SAILE_STATUS_CANCELLED)
+            .iterator()
+        ):
+            for entry in sale.payment_split or []:
+                if entry.get("method") == payment_type:
+                    mixed += Decimal(str(entry.get("amount", 0)))
+        return pure + mixed
 
     def get_cash_sales_total(self, obj):
         return self._get_sales_by_payment(obj, "cash")
@@ -244,9 +255,6 @@ class CashSessionReportSerializer(serializers.ModelSerializer):
 
     def get_transfer_sales_total(self, obj):
         return self._get_sales_by_payment(obj, "transfer")
-
-    def get_qr_sales_total(self, obj):
-        return self._get_sales_by_payment(obj, "qr")
 
     def get_credit_sales_total(self, obj):
         return self._get_sales_by_payment(obj, "credit")
@@ -284,3 +292,117 @@ class CashSessionClosureSerializer(serializers.ModelSerializer):
             "notes",
         ]
         read_only_fields = ["id", "session", "closed_at"]
+
+
+class CashSessionClosedListSerializer(serializers.ModelSerializer):
+    """Listado de cajas cerradas para el historial (solo lectura).
+
+    Los campos ``sales_count`` y ``sales_total`` provienen del queryset
+    anotado en la vista, excluyendo ventas canceladas.
+    """
+
+    cash_register_name = serializers.CharField(source="cash_register.name", read_only=True)
+    user_name = serializers.CharField(source="user.name", read_only=True)
+    sales_count = serializers.IntegerField(read_only=True)
+    sales_total = serializers.DecimalField(
+        max_digits=12, decimal_places=2, read_only=True
+    )
+
+    class Meta:
+        model = CashSession
+        fields = [
+            "id",
+            "cash_register",
+            "cash_register_name",
+            "user",
+            "user_name",
+            "opening_amount",
+            "expected_amount",
+            "counted_amount",
+            "difference",
+            "status",
+            "opened_at",
+            "closed_at",
+            "sales_count",
+            "sales_total",
+        ]
+        read_only_fields = fields
+
+
+class GeneralMovementSerializer(serializers.ModelSerializer):
+    """Serializer de lectura para GeneralMovement."""
+
+    created_by_name = serializers.CharField(source="created_by.name", read_only=True)
+    type_display = serializers.CharField(source="get_type_display", read_only=True)
+    payment_method_display = serializers.CharField(
+        source="get_payment_method_display", read_only=True
+    )
+
+    class Meta:
+        model = GeneralMovement
+        fields = [
+            "id",
+            "type",
+            "type_display",
+            "name",
+            "description",
+            "amount",
+            "date",
+            "payment_method",
+            "payment_method_display",
+            "is_active",
+            "created_by",
+            "created_by_name",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "created_by",
+            "created_by_name",
+            "type_display",
+            "payment_method_display",
+            "created_at",
+            "updated_at",
+        ]
+
+
+class GeneralMovementWriteSerializer(serializers.ModelSerializer):
+    """Serializer de escritura para GeneralMovement."""
+
+    class Meta:
+        model = GeneralMovement
+        fields = [
+            "type",
+            "name",
+            "description",
+            "amount",
+            "date",
+            "payment_method",
+        ]
+
+    def validate_amount(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("El monto debe ser mayor a cero.")
+        return value
+
+
+class GeneralMovementPaymentRowSerializer(serializers.Serializer):
+    type = serializers.CharField()
+    label = serializers.CharField()
+    total = serializers.CharField()
+
+
+class GeneralMovementPeriodRowSerializer(serializers.Serializer):
+    period = serializers.CharField()
+    income = serializers.CharField()
+    expense = serializers.CharField()
+
+
+class GeneralMovementSummarySerializer(serializers.Serializer):
+    total_income = serializers.CharField()
+    total_expense = serializers.CharField()
+    balance = serializers.CharField()
+    count = serializers.IntegerField()
+    by_payment = GeneralMovementPaymentRowSerializer(many=True)
+    by_period = GeneralMovementPeriodRowSerializer(many=True)

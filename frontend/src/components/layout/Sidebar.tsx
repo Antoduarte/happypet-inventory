@@ -12,6 +12,8 @@ import {
     ChevronRight,
     CircleDollarSign,
     BarChart3,
+    Wallet,
+    History,
 } from 'lucide-react';
 import React, { useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
@@ -44,6 +46,18 @@ export const Sidebar: React.FC = () => {
             icon: CircleDollarSign,
             label: 'Caja',
             show: true,
+        },
+        {
+            path: '/general-movements',
+            icon: Wallet,
+            label: 'Ingresos y Egresos',
+            show: user?.role === 'admin' || user?.role === 'manager',
+        },
+        {
+            path: '/closed-cash-sessions',
+            icon: History,
+            label: 'Historial de Cajas',
+            show: user?.role === 'admin' || user?.role === 'manager',
         },
         { path: '/users', icon: Users, label: 'Usuarios', show: user?.role === 'admin' },
     ];

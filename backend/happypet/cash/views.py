@@ -1,12 +1,18 @@
-from datetime import timedelta
+from datetime import datetime, time as dtime, timedelta
+from decimal import Decimal
+
+from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.db import models
-from rest_framework import viewsets, status
+from django.db.models import Count, Q, Case, DecimalField, Sum, Value, When
+from django.db.models.functions import TruncMonth, TruncWeek
+from django.utils.dateparse import parse_date
+from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import CashRegister, CashSession, CashMovement, CashSessionClosure
+from .models import CashRegister, CashSession, CashMovement, CashSessionClosure, GeneralMovement
 from .serializers import (
     CashRegisterSerializer,
     CashSessionSerializer,
@@ -17,9 +23,18 @@ from .serializers import (
     CashMovementCreateSerializer,
     CashSessionActiveSerializer,
     CashSessionClosureSerializer,
+    CashSessionClosedListSerializer,
+    GeneralMovementSerializer,
+    GeneralMovementWriteSerializer,
+    GeneralMovementSummarySerializer,
 )
 from .services import CashSessionService, CashMovementService
-from happypet.users.permissions import ROLE_ADMIN, ROLE_MANAGER, ROLE_CASHIER
+from .permissions import CanManageGeneralMovement
+from happypet.products.constants import SAILE_STATUS_CANCELLED
+from happypet.users.permissions import ROLE_ADMIN, ROLE_MANAGER, ROLE_CASHIER, IsManagerOrAdmin
+from happypet.utils.pagination import StandardResultsSetPagination
+
+User = get_user_model()
 
 
 class CashRegisterViewSet(viewsets.ModelViewSet):
@@ -249,6 +264,78 @@ class CashSessionViewSet(viewsets.ModelViewSet):
         closures = session.closures.all().order_by("-closed_at")
         return Response(CashSessionClosureSerializer(closures, many=True).data)
 
+    @action(detail=False, methods=["get"], url_path="closed",
+            permission_classes=[IsManagerOrAdmin])
+    def closed(self, request):
+        """Historial de cajas cerradas (solo admin/manager, solo lectura).
+
+        Filtros: ``date_from``/``date_to`` por fecha de apertura y ``user_id``.
+        ``sales_count`` y ``sales_total`` excluyen ventas canceladas.
+        """
+        queryset = (
+            CashSession.objects
+            .filter(status=CashSession.STATUS_CLOSED)
+            .select_related("cash_register", "user")
+            .annotate(
+                sales_count=Count(
+                    "sales",
+                    filter=~Q(sales__status=SAILE_STATUS_CANCELLED),
+                    distinct=True,
+                ),
+                sales_total=Sum(
+                    "sales__total_price",
+                    filter=~Q(sales__status=SAILE_STATUS_CANCELLED),
+                    default=Decimal("0.00"),
+                ),
+            )
+        )
+
+        date_from = request.query_params.get("date_from")
+        if date_from:
+            parsed = parse_date(date_from)
+            if parsed:
+                queryset = queryset.filter(
+                    opened_at__gte=timezone.make_aware(datetime.combine(parsed, dtime.min))
+                )
+
+        date_to = request.query_params.get("date_to")
+        if date_to:
+            parsed = parse_date(date_to)
+            if parsed:
+                queryset = queryset.filter(
+                    opened_at__lte=timezone.make_aware(datetime.combine(parsed, dtime.max))
+                )
+
+        user_id = request.query_params.get("user_id")
+        if user_id:
+            queryset = queryset.filter(user_id=user_id)
+
+        queryset = queryset.order_by("-opened_at")
+
+        paginator = StandardResultsSetPagination()
+        page = paginator.paginate_queryset(queryset, request, view=self)
+        if page is not None:
+            serializer = CashSessionClosedListSerializer(page, many=True)
+            return paginator.get_paginated_response(serializer.data)
+
+        serializer = CashSessionClosedListSerializer(queryset, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["get"], url_path="users",
+            permission_classes=[IsManagerOrAdmin])
+    def users(self, request):
+        """Usuarios con al menos una sesión de caja (para filtros del historial)."""
+        user_ids = (CashSession.objects.values_list("user_id", flat=True).distinct())
+        users = (
+            User.objects
+            .filter(id__in=user_ids, is_active=True)
+            .order_by("name")
+        )
+        return Response([
+            {"id": user.id, "name": user.name or user.email}
+            for user in users
+        ])
+
 
 class CashMovementViewSet(viewsets.ModelViewSet):
     queryset = CashMovement.objects.select_related("cash_session", "created_by")
@@ -312,3 +399,172 @@ class CashMovementViewSet(viewsets.ModelViewSet):
         if session_id:
             self.queryset = self.queryset.filter(cash_session_id=session_id)
         return super().list(request, *args, **kwargs)
+
+
+class GeneralMovementViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para movimientos generales de ingresos y egresos del negocio.
+
+    Permisos:
+      - Admin: crear, editar, eliminar (soft delete) y listar.
+      - Manager: listar y ver detalle.
+      - Otros roles: sin acceso.
+    """
+
+    queryset = (
+        GeneralMovement.objects
+        .filter(deleted_at__isnull=True)
+        .select_related("created_by")
+    )
+    serializer_class = GeneralMovementSerializer
+    permission_classes = [CanManageGeneralMovement]
+    pagination_class = StandardResultsSetPagination
+
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ["name", "description"]
+    ordering_fields = ["date", "amount", "created_at"]
+    ordering = ["-date"]
+
+    def get_serializer_class(self):
+        if self.action in ("create", "update", "partial_update"):
+            return GeneralMovementWriteSerializer
+        return GeneralMovementSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        read_serializer = GeneralMovementSerializer(serializer.instance)
+        return Response(read_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+
+        movement_type = self.request.query_params.get("type")
+        if movement_type:
+            queryset = queryset.filter(type=movement_type)
+
+        payment_method = self.request.query_params.get("payment_method")
+        if payment_method:
+            queryset = queryset.filter(payment_method=payment_method)
+
+        date_from = self.request.query_params.get("date_from")
+        if date_from:
+            queryset = queryset.filter(date__gte=date_from)
+
+        date_to = self.request.query_params.get("date_to")
+        if date_to:
+            queryset = queryset.filter(date__lte=date_to)
+
+        return queryset
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.is_active = False
+        instance.deleted_at = timezone.now()
+        instance.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, methods=["get"], url_path="summary")
+    def summary(self, request):
+        """Resumen agregado de movimientos generales según los filtros aplicados."""
+        queryset = self.get_queryset()
+
+        amount_field = DecimalField(
+            max_digits=12,
+            decimal_places=2,
+            default=Decimal("0.00"),
+        )
+
+        totals = queryset.aggregate(
+            total_income=Sum(
+                Case(When(type=GeneralMovement.TYPE_INCOME, then="amount"), default=Value(0), output_field=amount_field),
+            ),
+            total_expense=Sum(
+                Case(When(type=GeneralMovement.TYPE_EXPENSE, then="amount"), default=Value(0), output_field=amount_field),
+            ),
+            count=models.Count("id"),
+        )
+        total_income = totals["total_income"] or Decimal("0.00")
+        total_expense = totals["total_expense"] or Decimal("0.00")
+        balance = total_income - total_expense
+
+        by_payment = []
+        for method, label in GeneralMovement.PAYMENT_CHOICES:
+            total = (
+                queryset.filter(payment_method=method).aggregate(total=Sum("amount"))["total"]
+                or Decimal("0.00")
+            )
+            by_payment.append(
+                {
+                    "type": method,
+                    "label": label,
+                    "total": str(total),
+                }
+            )
+
+        granularity = request.query_params.get("granularity", "day")
+
+        bucket_map = {
+            "day": "date",
+            "week": TruncWeek,
+            "month": TruncMonth,
+        }
+        bucket_expr = bucket_map.get(granularity, "date")
+
+        if bucket_expr == "date":
+            aggregated = (
+                queryset.values("date")
+                .annotate(
+                    income=Sum(
+                        Case(When(type=GeneralMovement.TYPE_INCOME, then="amount"), default=Value(0), output_field=amount_field),
+                    ),
+                    expense=Sum(
+                        Case(When(type=GeneralMovement.TYPE_EXPENSE, then="amount"), default=Value(0), output_field=amount_field),
+                    ),
+                )
+                .order_by("date")
+            )
+        else:
+            aggregated = (
+                queryset.annotate(bucket=bucket_expr("date"))
+                .values("bucket")
+                .annotate(
+                    income=Sum(
+                        Case(When(type=GeneralMovement.TYPE_INCOME, then="amount"), default=Value(0), output_field=amount_field),
+                    ),
+                    expense=Sum(
+                        Case(When(type=GeneralMovement.TYPE_EXPENSE, then="amount"), default=Value(0), output_field=amount_field),
+                    ),
+                )
+                .order_by("bucket")
+            )
+
+        by_period = []
+        for row in aggregated:
+            bucket = row["date"] if bucket_expr == "date" else row["bucket"]
+            if isinstance(bucket, datetime):
+                period = timezone.localtime(bucket).date().isoformat()
+            else:
+                period = bucket.isoformat()
+            by_period.append(
+                {
+                    "period": period,
+                    "income": str(row["income"]),
+                    "expense": str(row["expense"]),
+                }
+            )
+
+        data = {
+            "total_income": str(total_income),
+            "total_expense": str(total_expense),
+            "balance": str(balance),
+            "count": totals["count"],
+            "by_payment": by_payment,
+            "by_period": by_period,
+        }
+        return Response(GeneralMovementSummarySerializer(data).data)

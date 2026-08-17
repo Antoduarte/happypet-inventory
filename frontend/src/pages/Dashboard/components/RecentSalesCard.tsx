@@ -1,25 +1,11 @@
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import {
-    Banknote,
-    CreditCard,
-    ArrowLeftRight,
-    QrCode,
-    Wallet,
-    type LucideIcon,
-} from 'lucide-react';
+import { Wallet } from 'lucide-react';
 import { Card } from '../../../components/ui/Card';
 import { StatusBanner } from '../../../components/ui/StatusBanner';
 import { useSale } from '../../../hooks/useSale';
 import { formatCurrency } from '../../../utils/format';
-
-const PAYMENT_ICONS: Record<string, LucideIcon> = {
-    cash: Banknote,
-    card: CreditCard,
-    transfer: ArrowLeftRight,
-    qr: QrCode,
-    credit: Wallet,
-};
+import { PAYMENT_ICONS } from '../../../utils/payment';
 
 const formatSaleDate = (iso: string): string => {
     const date = new Date(iso);

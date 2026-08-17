@@ -6,7 +6,7 @@ import { Button } from './Button';
 // Types
 // ---------------------------------------------------------------------------
 
-export type CompletionPaymentMethod = 'cash' | 'card' | 'transfer' | 'qr';
+export type CompletionPaymentMethod = 'cash' | 'card' | 'transfer';
 
 interface PaymentMethodDialogProps {
     /** Whether the dialog is open */

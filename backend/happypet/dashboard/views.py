@@ -13,13 +13,14 @@ from happypet.products.models import Product
 from happypet.products.constants import (
     PAYMENT_CHOICES,
     PAYMENT_CREDIT,
+    PAYMENT_MIXED,
     SAILE_STATUS_COMPLETED,
     SAILE_STATUS_PENDING,
     SALE_ITEM_PRODUCT,
     SALE_ITEM_SERVICE,
 )
 from happypet.sales.models import Sale, SaleItem
-from happypet.users.permissions import IsManagerOrAdmin
+from happypet.users.permissions import IsManagerOrAdmin, ROLE_CASHIER
 from happypet.utils.pagination import StandardResultsSetPagination
 from .serializers import SaleDetailRowSerializer
 
@@ -199,24 +200,30 @@ class SalesReportView(APIView):
         ]
 
         # --- Payment method breakdown ---
+        # Mixed payments are containers, not real methods. Initialize buckets for
+        # every real method, aggregate pure sales, then redistribute mixed splits.
         payment_totals = {
-            row['payment_type']: row['total'] or 0
-            for row in qs.values('payment_type').annotate(total=Sum('total_price'))
+            payment_type: Decimal("0.00")
+            for payment_type, _ in PAYMENT_CHOICES
+            if payment_type not in (PAYMENT_CREDIT, PAYMENT_MIXED)
         }
-        # Exclude credit from the completed-sales breakdown because pending credit
-        # is shown separately.
-        payment_choices_without_credit = [
-            (payment_type, label)
-            for payment_type, label in PAYMENT_CHOICES
-            if payment_type != PAYMENT_CREDIT
-        ]
+        for row in qs.exclude(payment_type=PAYMENT_MIXED).values('payment_type').annotate(total=Sum('total_price')):
+            payment_totals[row['payment_type']] = Decimal(str(row['total'] or 0))
+
+        for sale in qs.filter(payment_type=PAYMENT_MIXED).iterator():
+            for entry in sale.payment_split or []:
+                method = entry.get('method')
+                if method in payment_totals:
+                    payment_totals[method] += Decimal(str(entry.get('amount', 0)))
+
         by_payment = [
             {
                 'type': payment_type,
                 'label': label,
-                'total': _format_money(payment_totals.get(payment_type, 0)),
+                'total': _format_money(payment_totals[payment_type]),
             }
-            for payment_type, label in payment_choices_without_credit
+            for payment_type, label in PAYMENT_CHOICES
+            if payment_type not in (PAYMENT_CREDIT, PAYMENT_MIXED)
         ]
 
         # --- Pending credit total ---
@@ -324,6 +331,19 @@ class SalesDetailReportView(generics.ListAPIView):
     ordering = ['-sale_date']
 
     def get_queryset(self):
+        cash_session_id = self.request.query_params.get("cash_session_id")
+
+        if cash_session_id:
+            qs = (
+                Sale.objects
+                .filter(cash_session_id=cash_session_id, status=SAILE_STATUS_COMPLETED)
+                .select_related('cash_session__user')
+                .prefetch_related('items__product', 'items__service', 'items__presentation')
+            )
+            if self.request.user.role == ROLE_CASHIER:
+                qs = qs.filter(cash_session__user=self.request.user)
+            return qs
+
         start, end, cashier_id, is_cashier = _resolve_report_filters(self.request)
 
         qs = (
@@ -340,5 +360,9 @@ class SalesDetailReportView(generics.ListAPIView):
             qs = qs.filter(cash_session__user=self.request.user)
         elif cashier_id:
             qs = qs.filter(cash_session__user_id=cashier_id)
+
+        cash_session_id = self.request.query_params.get("cash_session_id")
+        if cash_session_id:
+            qs = qs.filter(cash_session_id=cash_session_id)
 
         return qs

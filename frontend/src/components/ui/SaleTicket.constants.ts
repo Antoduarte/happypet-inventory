@@ -19,10 +19,4 @@ export const SALE_TICKET_FOOTER_MESSAGE = '¡Gracias por su compra!';
 
 export const SALE_TICKET_BUSINESS_NAME = 'HappyPet';
 
-export const PAYMENT_LABELS: Record<string, string> = {
-    cash: 'Efectivo',
-    card: 'Tarjeta',
-    transfer: 'Transferencia',
-    qr: 'QR',
-    credit: 'Crédito',
-};
+export { PAYMENT_LABELS } from '../../utils/payment';

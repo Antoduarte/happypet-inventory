@@ -9,7 +9,6 @@ import {
     CreditCard,
     Banknote,
     ArrowLeftRight,
-    QrCode,
     Wallet,
     CheckCircle,
     XCircle,
@@ -59,7 +58,6 @@ export const SessionReportPage: React.FC = () => {
             icon: ArrowLeftRight,
             total: report.transfer_sales_total,
         },
-        { type: 'qr', label: 'QR', icon: QrCode, total: report.qr_sales_total },
         { type: 'credit', label: 'Crédito', icon: Wallet, total: report.credit_sales_total },
     ];
 
@@ -185,7 +183,7 @@ export const SessionReportPage: React.FC = () => {
                 <p className="text-sm font-semibold text-slate-700 mb-4">
                     Desglose por Método de Pago
                 </p>
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {payments.map(({ type, label, icon: Icon, total }) => (
                         <div
                             key={type}
