@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Save, X, Trash2, Wrench, Tag } from 'lucide-react';
+import { Save, X, Trash2, Wrench, Tag, FolderPlus } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
@@ -14,6 +14,9 @@ import { useCategory } from '../../hooks/useCategory';
 import Loading from '../../components/ui/Loading';
 import { QuickActionsSidebar } from '@/components/ui/QuickActionsSidebar';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { QuickCategoryModal } from '@/components/ui/QuickCategoryModal';
+import { Select } from '@/components/ui/Select';
+import type { Category } from '@/interfaces/category';
 import { serviceSchema, type ServiceFormData } from '../../schemas/service';
 
 // ---------------------------------------------------------------------------
@@ -62,17 +65,25 @@ export const ServiceFormPage: React.FC = () => {
     const navigate = useNavigate();
     const { addService, updateService, deleteService, fetchServiceById } = useService();
     const { requireAuthorization, managerGateModal } = useManagerGate();
-    const { categories, fetchCategories } = useCategory();
+    const {
+        categories,
+        fetchCategories,
+        addCategory,
+        isLoading: isLoadingCategories,
+    } = useCategory();
 
     const [isFetchingService, setIsFetchingService] = useState(isEditing);
     const [showConfirmDelete, setShowConfirmDelete] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [showQuickCategory, setShowQuickCategory] = useState(false);
+    const [isCreatingCategory, setIsCreatingCategory] = useState(false);
 
     const {
         register,
         handleSubmit,
         control,
         reset,
+        setValue,
         formState: { errors, isSubmitting },
     } = useForm<ServiceFormData>({
         resolver: zodResolver(serviceSchema) as never,
@@ -149,6 +160,26 @@ export const ServiceFormPage: React.FC = () => {
         });
     };
 
+    /** Crea una categoría de servicio rápidamente desde el formulario. */
+    const handleQuickCategoryCreated = async (partialCategory: Category) => {
+        setIsCreatingCategory(true);
+        try {
+            const created = await addCategory({
+                name: partialCategory.name,
+                description: partialCategory.description ?? undefined,
+                type: 'service',
+                is_active: true,
+            });
+            if (created) {
+                await fetchCategories({ type: 'service', page_size: 100 });
+                setValue('category_id', created.id, { shouldDirty: true });
+            }
+        } finally {
+            setIsCreatingCategory(false);
+            setShowQuickCategory(false);
+        }
+    };
+
     const sidebarActions = useMemo(
         () => [
             {
@@ -189,10 +220,7 @@ export const ServiceFormPage: React.FC = () => {
     );
 
     const categoryOptions = useMemo(
-        () => [
-            { value: '', label: 'Sin categoría' },
-            ...categories.map(({ id, name }) => ({ value: String(id), label: name })),
-        ],
+        () => categories.map(({ id, name }) => ({ value: id, label: name })),
         [categories],
     );
 
@@ -277,34 +305,28 @@ export const ServiceFormPage: React.FC = () => {
                                     iconColor="text-violet-600"
                                 >
                                     {/* Categoría */}
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-sm font-medium text-slate-700">
-                                            Categoría
-                                        </label>
-                                        <Controller
+                                    <div className="flex items-end gap-2">
+                                        <Select
                                             name="category_id"
                                             control={control}
-                                            render={({ field }) => (
-                                                <select
-                                                    {...field}
-                                                    value={field.value ?? ''}
-                                                    onChange={(e) =>
-                                                        field.onChange(
-                                                            e.target.value
-                                                                ? Number(e.target.value)
-                                                                : null,
-                                                        )
-                                                    }
-                                                    className="form-select w-full px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:border-brand-light focus:ring-1 focus:ring-brand-light/10 transition-all outline-none hover:border-slate-400"
-                                                >
-                                                    {categoryOptions.map((opt) => (
-                                                        <option key={opt.value} value={opt.value}>
-                                                            {opt.label}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                            )}
+                                            options={categoryOptions}
+                                            label="Categoría"
+                                            error={errors.category_id?.message}
+                                            isLoading={isLoadingCategories}
+                                            noOptionsText="Sin categoría"
+                                            className="flex-1"
                                         />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowQuickCategory(true)}
+                                            className="inline-flex items-center min-w-fit gap-2 text-sm text-brand px-4 py-2 rounded-lg hover:bg-brand/10 font-medium transition-colors"
+                                            aria-label="Crear nueva categoría"
+                                        >
+                                            <span className="shrink-0 p-1.5 rounded-md bg-brand/10 text-brand">
+                                                <FolderPlus size={20} />
+                                            </span>
+                                            Nueva categoría
+                                        </button>
                                     </div>
 
                                     {/* Estado */}
@@ -340,6 +362,14 @@ export const ServiceFormPage: React.FC = () => {
                 isLoading={isDeleting}
                 onConfirm={handleConfirmDelete}
                 onCancel={() => setShowConfirmDelete(false)}
+            />
+
+            {/* ── Quick Category Modal ── */}
+            <QuickCategoryModal
+                isOpen={showQuickCategory}
+                isLoading={isCreatingCategory}
+                onCreated={handleQuickCategoryCreated}
+                onClose={() => setShowQuickCategory(false)}
             />
 
             {/* ── Autorización de gerente (cajeros) ── */}

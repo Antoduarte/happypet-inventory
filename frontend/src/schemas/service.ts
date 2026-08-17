@@ -5,7 +5,7 @@ export const serviceSchema = z.object({
     description: z.string().optional().nullable(),
     price: z.coerce.number().min(0, 'El precio debe ser positivo'),
     is_active: z.boolean(),
-    category_id: z.number().optional().nullable(),
+    category_id: z.coerce.number().optional().nullable(),
 });
 
 export type ServiceFormData = z.infer<typeof serviceSchema>;
