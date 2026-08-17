@@ -1,8 +1,9 @@
 import React, { useCallback } from 'react';
-import { User } from 'lucide-react';
+import { User, History, CalendarDays, Calendar, CalendarRange } from 'lucide-react';
 import { PeriodFilterBar } from '../../../components/ui/PeriodFilterBar';
 import { SelectFilter } from '../../../components/ui/SelectFilter';
 import { cashSessionService } from '../../../services/cash';
+import type { TogglePillOption } from '../../../components/ui/TogglePills';
 import type { ReportGranularity, ReportPreset } from '../../../interfaces/report';
 
 interface ClosedCashSessionFiltersProps {
@@ -15,6 +16,13 @@ interface ClosedCashSessionFiltersProps {
     userId: number | null;
     onUserIdChange: (id: number | null) => void;
 }
+
+const CLOSED_CASH_PRESET_OPTIONS: TogglePillOption<ReportPreset>[] = [
+    { value: 'yesterday', label: 'Ayer', icon: History },
+    { value: 'week', label: 'Semana', icon: CalendarDays },
+    { value: 'month', label: 'Mes', icon: Calendar },
+    { value: 'custom', label: 'Rango', icon: CalendarRange },
+];
 
 export const ClosedCashSessionFilters: React.FC<ClosedCashSessionFiltersProps> = ({
     preset,
@@ -46,6 +54,7 @@ export const ClosedCashSessionFilters: React.FC<ClosedCashSessionFiltersProps> =
             granularity={'day' as ReportGranularity}
             onGranularityChange={() => undefined}
             hideGranularity
+            presetOptions={CLOSED_CASH_PRESET_OPTIONS}
             sellerFilter={
                 <SelectFilter
                     filterId="closed-session-user"

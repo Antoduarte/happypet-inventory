@@ -31,7 +31,7 @@ export const ClosedCashSessionListPage: React.FC = () => {
     const { pagination, setPage } = usePagination();
     const { currentPage, itemsPerPage } = pagination;
 
-    const [preset, setPreset] = useState<ReportPreset>('today');
+    const [preset, setPreset] = useState<ReportPreset>('yesterday');
     const [customStart, setCustomStart] = useState<string>(toISODate(addDays(new Date(), -6)));
     const [customEnd, setCustomEnd] = useState<string>(toISODate(new Date()));
     const [userId, setUserId] = useState<number | null>(null);

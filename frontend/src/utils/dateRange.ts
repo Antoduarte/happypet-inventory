@@ -31,6 +31,12 @@ export const resolvePreset = (
     switch (preset) {
         case 'today':
             return { start: todayIso, end: todayIso, granularity: 'day' };
+        case 'yesterday':
+            return {
+                start: toISODate(addDays(today, -1)),
+                end: toISODate(addDays(today, -1)),
+                granularity: 'day',
+            };
         case 'week':
             return { start: toISODate(addDays(today, -6)), end: todayIso, granularity: 'day' };
         case 'month':

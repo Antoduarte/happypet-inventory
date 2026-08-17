@@ -1,6 +1,6 @@
 export type ReportGranularity = 'day' | 'week' | 'month';
 
-export type ReportPreset = 'today' | 'week' | 'month' | 'custom';
+export type ReportPreset = 'today' | 'yesterday' | 'week' | 'month' | 'custom';
 
 export interface SalesReportParams {
     start?: string; // YYYY-MM-DD

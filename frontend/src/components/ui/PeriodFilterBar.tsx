@@ -26,6 +26,8 @@ interface PeriodFilterBarProps {
     onCustomEndChange: (value: string) => void;
     granularity: ReportGranularity;
     onGranularityChange: (value: ReportGranularity) => void;
+    /** Optional preset list. Defaults to the standard presets. */
+    presetOptions?: TogglePillOption<ReportPreset>[];
     /** Optional extra filter rendered next to the preset pills (e.g. seller filter). */
     sellerFilter?: React.ReactNode;
     /** Hides the "Agrupar por" granularity picker (used when no aggregation applies). */
@@ -45,6 +47,7 @@ export const PeriodFilterBar: React.FC<PeriodFilterBarProps> = ({
     onCustomEndChange,
     granularity,
     onGranularityChange,
+    presetOptions,
     sellerFilter,
     hideGranularity = false,
 }) => {
@@ -55,7 +58,7 @@ export const PeriodFilterBar: React.FC<PeriodFilterBarProps> = ({
             <div className="flex flex-col gap-4">
                 <div className="flex flex-wrap items-center gap-3">
                     <TogglePills<ReportPreset>
-                        options={PRESET_OPTIONS}
+                        options={presetOptions ?? PRESET_OPTIONS}
                         value={preset}
                         onChange={onPresetChange}
                     />
