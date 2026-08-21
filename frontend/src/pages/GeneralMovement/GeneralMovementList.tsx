@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, TrendingUp, TrendingDown } from 'lucide-react';
+import { Plus, TrendingUp, TrendingDown, ChartNoAxesCombined } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -238,6 +238,14 @@ export const GeneralMovementList: React.FC = () => {
                             icon={TrendingDown}
                             iconBg="bg-rose-100"
                             iconColor="text-rose-600"
+                            isLoading={isSummaryLoading}
+                        />
+                        <MetricCard
+                            label="Resultado neto"
+                            value={summary ? formatCurrency(summary.balance) : '—'}
+                            icon={ChartNoAxesCombined}
+                            iconBg="bg-blue-100"
+                            iconColor="text-blue-600"
                             isLoading={isSummaryLoading}
                         />
                     </div>

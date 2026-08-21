@@ -1,16 +1,17 @@
-from datetime import datetime, time as dtime, timedelta
+from datetime import date, datetime, time as dtime, timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.db import models
 from django.db.models import Count, Q, Case, DecimalField, Sum, Value, When
-from django.db.models.functions import TruncMonth, TruncWeek
+from django.db.models.functions import TruncDay, TruncMonth, TruncWeek
 from django.utils.dateparse import parse_date
 from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from .models import CashRegister, CashSession, CashMovement, CashSessionClosure, GeneralMovement
 from .serializers import (
@@ -27,11 +28,12 @@ from .serializers import (
     GeneralMovementSerializer,
     GeneralMovementWriteSerializer,
     GeneralMovementSummarySerializer,
+    CashReportSerializer,
 )
 from .services import CashSessionService, CashMovementService
 from .permissions import CanManageGeneralMovement
 from happypet.products.constants import SAILE_STATUS_CANCELLED
-from happypet.users.permissions import ROLE_ADMIN, ROLE_MANAGER, ROLE_CASHIER, IsManagerOrAdmin
+from happypet.users.permissions import ROLE_ADMIN, ROLE_MANAGER, ROLE_CASHIER, ROLE_ACCOUNTANT, IsManagerOrAdmin, IsManagerOrAdminOrAccountant, CanOperateCashSession
 from happypet.utils.pagination import StandardResultsSetPagination
 
 User = get_user_model()
@@ -42,6 +44,12 @@ class CashRegisterViewSet(viewsets.ModelViewSet):
     serializer_class = CashRegisterSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = None
+
+    def get_permissions(self):
+        """Only admin/manager may create, update or delete cash registers."""
+        if self.action in ("create", "update", "partial_update", "destroy"):
+            return [IsManagerOrAdmin()]
+        return super().get_permissions()
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -56,6 +64,21 @@ class CashSessionViewSet(viewsets.ModelViewSet):
         "movements", "sales"
     )
     permission_classes = [IsAuthenticated]
+
+    def get_permissions(self):
+        """Only seller roles may open, resume or close cash sessions."""
+        if self.action in (
+            "create",
+            "open",
+            "close",
+            "resume",
+            "final-close",
+            "update",
+            "partial_update",
+            "destroy",
+        ):
+            return [CanOperateCashSession()]
+        return super().get_permissions()
 
     def get_serializer_class(self):
         if self.action == "current":
@@ -78,7 +101,7 @@ class CashSessionViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(user=user)
 
         user_id = self.request.query_params.get("user_id")
-        if user_id and user.role in (ROLE_ADMIN, ROLE_MANAGER):
+        if user_id and user.role in (ROLE_ADMIN, ROLE_MANAGER, ROLE_ACCOUNTANT):
             queryset = queryset.filter(user_id=user_id)
 
         cash_register_id = self.request.query_params.get("cash_register_id")
@@ -265,7 +288,7 @@ class CashSessionViewSet(viewsets.ModelViewSet):
         return Response(CashSessionClosureSerializer(closures, many=True).data)
 
     @action(detail=False, methods=["get"], url_path="closed",
-            permission_classes=[IsManagerOrAdmin])
+            permission_classes=[IsManagerOrAdminOrAccountant])
     def closed(self, request):
         """Historial de cajas cerradas (solo admin/manager, solo lectura).
 
@@ -322,7 +345,7 @@ class CashSessionViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     @action(detail=False, methods=["get"], url_path="users",
-            permission_classes=[IsManagerOrAdmin])
+            permission_classes=[IsManagerOrAdminOrAccountant])
     def users(self, request):
         """Usuarios con al menos una sesión de caja (para filtros del historial)."""
         user_ids = (CashSession.objects.values_list("user_id", flat=True).distinct())
@@ -342,6 +365,7 @@ class CashMovementViewSet(viewsets.ModelViewSet):
     serializer_class = CashMovementSerializer
     permission_classes = [IsAuthenticated]
     http_method_names = ["get", "post"]
+    pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -353,6 +377,26 @@ class CashMovementViewSet(viewsets.ModelViewSet):
         session_id = self.request.query_params.get("cash_session")
         if session_id:
             queryset = queryset.filter(cash_session_id=session_id)
+
+        movement_type = self.request.query_params.get("type")
+        if movement_type:
+            queryset = queryset.filter(type=movement_type)
+
+        cashier_id = self.request.query_params.get("cashier_id")
+        if cashier_id:
+            queryset = queryset.filter(cash_session__user_id=cashier_id)
+
+        date_from = self.request.query_params.get("date_from")
+        if date_from:
+            parsed = parse_date(date_from)
+            if parsed:
+                queryset = queryset.filter(created_at__date__gte=parsed)
+
+        date_to = self.request.query_params.get("date_to")
+        if date_to:
+            parsed = parse_date(date_to)
+            if parsed:
+                queryset = queryset.filter(created_at__date__lte=parsed)
 
         return queryset
 
@@ -395,9 +439,6 @@ class CashMovementViewSet(viewsets.ModelViewSet):
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
     def list(self, request, *args, **kwargs):
-        session_id = request.query_params.get("cash_session")
-        if session_id:
-            self.queryset = self.queryset.filter(cash_session_id=session_id)
         return super().list(request, *args, **kwargs)
 
 
@@ -568,3 +609,140 @@ class GeneralMovementViewSet(viewsets.ModelViewSet):
             "by_period": by_period,
         }
         return Response(GeneralMovementSummarySerializer(data).data)
+
+
+class CashReportView(APIView):
+    """
+    Aggregated cash movement report for accounting.
+
+    Returns income/expense totals, a period breakdown, and a per-cashier
+    breakdown for the requested date range. Admins, managers and accountants
+    can access this report.
+    """
+
+    permission_classes = [IsManagerOrAdminOrAccountant]
+
+    def _parse_date(self, value, fallback):
+        """Parse a YYYY-MM-DD query param, returning fallback if invalid."""
+        if not value:
+            return fallback
+        try:
+            return datetime.strptime(value, "%Y-%m-%d").date()
+        except (ValueError, TypeError):
+            return fallback
+
+    def _format_money(self, value):
+        """Format a numeric value as a string with exactly two decimal places."""
+        return f"{Decimal(str(value)):.2f}"
+
+    def get(self, request):
+        today = date.today()
+        start = self._parse_date(request.query_params.get("start"), today)
+        end = self._parse_date(request.query_params.get("end"), today)
+
+        if end < start:
+            start, end = end, start
+
+        granularity = request.query_params.get("granularity", "day")
+        if granularity not in ("day", "week", "month"):
+            granularity = "day"
+
+        cashier_id = request.query_params.get("cashier_id") or None
+
+        qs = CashMovement.objects.filter(
+            created_at__date__gte=start,
+            created_at__date__lte=end,
+        )
+
+        if cashier_id:
+            qs = qs.filter(cash_session__user_id=cashier_id)
+
+        amount_field = DecimalField(
+            max_digits=12,
+            decimal_places=2,
+            default=Decimal("0.00"),
+        )
+
+        totals = qs.aggregate(
+            total_income=Sum(
+                Case(When(type=CashMovement.TYPE_INCOME, then="amount"), default=Value(0), output_field=amount_field),
+            ),
+            total_expense=Sum(
+                Case(When(type=CashMovement.TYPE_EXPENSE, then="amount"), default=Value(0), output_field=amount_field),
+            ),
+            count=Count("id"),
+        )
+        total_income = totals["total_income"] or Decimal("0.00")
+        total_expense = totals["total_expense"] or Decimal("0.00")
+        balance = total_income - total_expense
+
+        trunc_map = {
+            "day": TruncDay,
+            "week": TruncWeek,
+            "month": TruncMonth,
+        }
+        trunc = trunc_map[granularity]
+
+        aggregated = (
+            qs.annotate(period=trunc("created_at"))
+            .values("period")
+            .annotate(
+                income=Sum(
+                    Case(When(type=CashMovement.TYPE_INCOME, then="amount"), default=Value(0), output_field=amount_field),
+                ),
+                expense=Sum(
+                    Case(When(type=CashMovement.TYPE_EXPENSE, then="amount"), default=Value(0), output_field=amount_field),
+                ),
+            )
+            .order_by("period")
+        )
+
+        by_period = []
+        for row in aggregated:
+            bucket = row["period"]
+            if isinstance(bucket, datetime):
+                period = timezone.localtime(bucket).date().isoformat()
+            else:
+                period = bucket.isoformat()
+            by_period.append(
+                {
+                    "period": period,
+                    "income": self._format_money(row["income"] or 0),
+                    "expense": self._format_money(row["expense"] or 0),
+                }
+            )
+
+        by_cashier = []
+        for row in (
+            qs.values("cash_session__user", "cash_session__user__name")
+            .annotate(
+                income=Sum(
+                    Case(When(type=CashMovement.TYPE_INCOME, then="amount"), default=Value(0), output_field=amount_field),
+                ),
+                expense=Sum(
+                    Case(When(type=CashMovement.TYPE_EXPENSE, then="amount"), default=Value(0), output_field=amount_field),
+                ),
+            )
+            .order_by("-income")
+        ):
+            by_cashier.append(
+                {
+                    "user_id": row["cash_session__user"],
+                    "name": row["cash_session__user__name"] or "Sin caja",
+                    "income": self._format_money(row["income"] or 0),
+                    "expense": self._format_money(row["expense"] or 0),
+                }
+            )
+
+        data = {
+            "granularity": granularity,
+            "start": start.isoformat(),
+            "end": end.isoformat(),
+            "total_income": self._format_money(total_income),
+            "total_expense": self._format_money(total_expense),
+            "balance": self._format_money(balance),
+            "count": totals["count"] or 0,
+            "by_period": by_period,
+            "by_cashier": by_cashier,
+        }
+        return Response(CashReportSerializer(data).data)

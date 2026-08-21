@@ -5,7 +5,7 @@ export interface User {
     id: number;
     email: string;
     name: string;
-    role: 'admin' | 'manager' | 'cashier';
+    role: 'admin' | 'manager' | 'cashier' | 'accountant';
     role_display: string;
     is_active: boolean;
     date_joined: string;
@@ -16,7 +16,7 @@ export interface CreateUserPayload {
     email: string;
     name: string;
     password: string;
-    role: 'admin' | 'manager' | 'cashier';
+    role: 'admin' | 'manager' | 'cashier' | 'accountant';
     is_active?: boolean;
     code?: string;
 }
@@ -24,7 +24,7 @@ export interface CreateUserPayload {
 export interface UpdateUserPayload {
     name?: string;
     password?: string;
-    role?: 'admin' | 'manager' | 'cashier';
+    role?: 'admin' | 'manager' | 'cashier' | 'accountant';
     is_active?: boolean;
     code?: string;
 }

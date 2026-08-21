@@ -12,11 +12,13 @@ from .managers import UserManager
 ROLE_ADMIN = "admin"
 ROLE_MANAGER = "manager"
 ROLE_CASHIER = "cashier"
+ROLE_ACCOUNTANT = "accountant"
 
 ROLE_CHOICES = [
     (ROLE_ADMIN, "Administrador"),
     (ROLE_MANAGER, "Gerente"),
     (ROLE_CASHIER, "Cajero"),
+    (ROLE_ACCOUNTANT, "Contador"),
 ]
 
 
@@ -62,6 +64,10 @@ class User(AbstractUser):
     @property
     def is_cashier(self):
         return self.role == ROLE_CASHIER
+
+    @property
+    def is_accountant(self):
+        return self.role == ROLE_ACCOUNTANT
 
     def get_absolute_url(self) -> str:
         """Get URL for user's detail view."""

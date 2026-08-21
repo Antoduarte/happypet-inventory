@@ -27,12 +27,14 @@ export const UserList: React.FC = () => {
         admin: 'bg-purple-100 text-purple-700',
         manager: 'bg-amber-100 text-amber-700',
         cashier: 'bg-blue-100 text-blue-700',
+        accountant: 'bg-emerald-100 text-emerald-700',
     };
 
     const roleLabels: Record<string, string> = {
         admin: 'Administrador',
         manager: 'Gerente',
         cashier: 'Cajero',
+        accountant: 'Contador',
     };
 
     const columns: ColumnDef<User>[] = [

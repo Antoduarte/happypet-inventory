@@ -21,6 +21,7 @@ from happypet.products.serializers import (
 # Utils
 from happypet.utils.pagination import StandardResultsSetPagination
 from happypet.utils.authorization import check_manager_authorization
+from happypet.users.permissions import CanViewCatalog, HasSellerRole
 from rest_framework.response import Response
 
 
@@ -33,6 +34,7 @@ class ProductViewSet(viewsets.ModelViewSet):
 
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
+    permission_classes = [CanViewCatalog]
     pagination_class = StandardResultsSetPagination
 
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
@@ -43,6 +45,12 @@ class ProductViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return super().get_queryset().filter(deleted_at__isnull=True)
+
+    def create(self, request, *args, **kwargs):
+        auth_error = check_manager_authorization(request)
+        if auth_error:
+            return auth_error
+        return super().create(request, *args, **kwargs)
 
     def update(self, request, *args, **kwargs):
         auth_error = check_manager_authorization(request)
@@ -88,6 +96,7 @@ class ProductPresentationViewSet(viewsets.ModelViewSet):
         .filter(is_active=True)
     )
     serializer_class = ProductPresentationSerializer
+    permission_classes = [CanViewCatalog]
     pagination_class = StandardResultsSetPagination
 
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
@@ -111,6 +120,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
 
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
+    permission_classes = [CanViewCatalog]
     pagination_class = StandardResultsSetPagination
 
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
@@ -137,6 +147,7 @@ class InventoryMovementViewSet(viewsets.ReadOnlyModelViewSet):
         .order_by("-movement_date")
     )
     serializer_class = InventoryMovementSerializer
+    permission_classes = [HasSellerRole]
     pagination_class = StandardResultsSetPagination
 
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
@@ -182,6 +193,7 @@ class MovementBatchViewSet(viewsets.ModelViewSet):
         .order_by("-created_at")
     )
     serializer_class = MovementBatchSerializer
+    permission_classes = [HasSellerRole]
     pagination_class = StandardResultsSetPagination
 
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]

@@ -1,7 +1,7 @@
 export interface LoginResponse {
     access: string;
     refresh: string;
-    role: 'admin' | 'manager' | 'cashier';
+    role: 'admin' | 'manager' | 'cashier' | 'accountant';
     user_id: number;
     name: string;
     email: string;
@@ -24,4 +24,4 @@ export interface AuthUser {
 }
 
 export type CashSessionStatus = 'open' | 'suspended' | 'closed';
-export type UserRole = 'admin' | 'manager' | 'cashier';
+export type UserRole = 'admin' | 'manager' | 'cashier' | 'accountant';

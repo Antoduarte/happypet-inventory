@@ -18,6 +18,7 @@ import { ServiceFormPage } from '../pages/Service/ServiceFormPage';
 import { UserList } from '../pages/User/UserList';
 import { UserFormPage } from '../pages/User/UserFormPage';
 import { ReportsPage } from '../pages/Reports/ReportsPage';
+import { CashReportPage } from '../pages/CashReport/CashReportPage';
 import { PrivateRoute } from '../components/auth/PrivateRoute';
 import { OpenSessionPage } from '../pages/CashSession/OpenSessionPage';
 import { ResumeSessionPage } from '../pages/CashSession/ResumeSessionPage';
@@ -27,52 +28,184 @@ import { GeneralMovementFormPage } from '../pages/GeneralMovement/GeneralMovemen
 import { ClosedCashSessionListPage } from '../pages/ClosedCashSession/ClosedCashSessionListPage';
 import { ClosedCashSessionDetailPage } from '../pages/ClosedCashSession/ClosedCashSessionDetailPage';
 import { RoleGuard } from '@/components/auth/RoleGuard';
+import type { UserRole } from '@/interfaces/auth';
 
 export const AppRoutes = () => {
+    const sellerRoles: UserRole[] = ['admin', 'manager', 'cashier'];
+    const accountingRoles: UserRole[] = ['admin', 'manager', 'accountant'];
+
     return (
         <Routes>
             {/* Public route */}
             <Route path="/login" element={<Login />} />
 
-            {/* Public standalone routes */}
-            <Route path="/cash/open" element={<OpenSessionPage />} />
-            <Route path="/cash/resume/:sessionId" element={<ResumeSessionPage />} />
+            {/* Standalone routes (sellers only) */}
+            <Route
+                path="/cash/open"
+                element={
+                    <RoleGuard roles={sellerRoles}>
+                        <OpenSessionPage />
+                    </RoleGuard>
+                }
+            />
+            <Route
+                path="/cash/resume/:sessionId"
+                element={
+                    <RoleGuard roles={sellerRoles}>
+                        <ResumeSessionPage />
+                    </RoleGuard>
+                }
+            />
 
             {/* All dashboard routes require authentication */}
             <Route element={<PrivateRoute />}>
                 <Route path="/" element={<DashboardLayout />}>
-                    <Route index element={<Dashboard />} />
-                    <Route path="categories" element={<CategoryList />} />
-                    <Route path="categories/new" element={<CategoryFormPage />} />
-                    <Route path="categories/edit/:id" element={<CategoryFormPage />} />
+                    <Route
+                        index
+                        element={
+                            <RoleGuard roles={sellerRoles} fallback="/reports/cash">
+                                <Dashboard />
+                            </RoleGuard>
+                        }
+                    />
+                    <Route
+                        path="categories"
+                        element={
+                            <RoleGuard roles={sellerRoles}>
+                                <CategoryList />
+                            </RoleGuard>
+                        }
+                    />
+                    <Route
+                        path="categories/new"
+                        element={
+                            <RoleGuard roles={sellerRoles}>
+                                <CategoryFormPage />
+                            </RoleGuard>
+                        }
+                    />
+                    <Route
+                        path="categories/edit/:id"
+                        element={
+                            <RoleGuard roles={sellerRoles}>
+                                <CategoryFormPage />
+                            </RoleGuard>
+                        }
+                    />
 
-                    <Route path="products" element={<ProductList />} />
-                    <Route path="products/new" element={<ProductFormPage />} />
-                    <Route path="products/edit/:id" element={<ProductFormPage />} />
+                    <Route
+                        path="products"
+                        element={
+                            <RoleGuard roles={sellerRoles}>
+                                <ProductList />
+                            </RoleGuard>
+                        }
+                    />
+                    <Route
+                        path="products/new"
+                        element={
+                            <RoleGuard roles={sellerRoles}>
+                                <ProductFormPage />
+                            </RoleGuard>
+                        }
+                    />
+                    <Route
+                        path="products/edit/:id"
+                        element={
+                            <RoleGuard roles={sellerRoles}>
+                                <ProductFormPage />
+                            </RoleGuard>
+                        }
+                    />
                     <Route
                         path="products/:productId/presentations/new"
-                        element={<PresentationFormPage />}
+                        element={
+                            <RoleGuard roles={sellerRoles}>
+                                <PresentationFormPage />
+                            </RoleGuard>
+                        }
                     />
                     <Route
                         path="products/:productId/presentations/edit/:id"
-                        element={<PresentationFormPage />}
+                        element={
+                            <RoleGuard roles={sellerRoles}>
+                                <PresentationFormPage />
+                            </RoleGuard>
+                        }
                     />
 
-                    <Route path="movements" element={<MovementList />} />
-                    <Route path="movements/new" element={<MovementFormPage />} />
-                    <Route path="movements/edit/:id" element={<MovementFormPage />} />
+                    <Route
+                        path="movements"
+                        element={
+                            <RoleGuard roles={sellerRoles}>
+                                <MovementList />
+                            </RoleGuard>
+                        }
+                    />
+                    <Route
+                        path="movements/new"
+                        element={
+                            <RoleGuard roles={sellerRoles}>
+                                <MovementFormPage />
+                            </RoleGuard>
+                        }
+                    />
+                    <Route
+                        path="movements/edit/:id"
+                        element={
+                            <RoleGuard roles={sellerRoles}>
+                                <MovementFormPage />
+                            </RoleGuard>
+                        }
+                    />
 
-                    <Route path="reports" element={<ReportsPage />} />
+                    <Route path="reports/sales" element={<ReportsPage />} />
+                    <Route
+                        path="reports/cash"
+                        element={
+                            <RoleGuard roles={accountingRoles}>
+                                <CashReportPage />
+                            </RoleGuard>
+                        }
+                    />
 
-                    <Route path="sales" element={<SalesList />} />
-                    <Route path="sales/:id" element={<SaleDetailPage />} />
-                    <Route path="sales/new" element={<SaleFormPage />} />
-                    <Route path="sales/:id/print" element={<SaleTicketPrintPage />} />
+                    <Route
+                        path="sales"
+                        element={
+                            <RoleGuard roles={sellerRoles}>
+                                <SalesList />
+                            </RoleGuard>
+                        }
+                    />
+                    <Route
+                        path="sales/:id"
+                        element={
+                            <RoleGuard roles={sellerRoles}>
+                                <SaleDetailPage />
+                            </RoleGuard>
+                        }
+                    />
+                    <Route
+                        path="sales/new"
+                        element={
+                            <RoleGuard roles={sellerRoles}>
+                                <SaleFormPage />
+                            </RoleGuard>
+                        }
+                    />
+                    <Route
+                        path="sales/:id/print"
+                        element={
+                            <RoleGuard roles={sellerRoles}>
+                                <SaleTicketPrintPage />
+                            </RoleGuard>
+                        }
+                    />
 
                     <Route
                         path="general-movements"
                         element={
-                            <RoleGuard roles={['admin', 'manager']}>
+                            <RoleGuard roles={sellerRoles}>
                                 <GeneralMovementList />
                             </RoleGuard>
                         }
@@ -80,7 +213,7 @@ export const AppRoutes = () => {
                     <Route
                         path="general-movements/new"
                         element={
-                            <RoleGuard roles={['admin']}>
+                            <RoleGuard roles={sellerRoles}>
                                 <GeneralMovementFormPage />
                             </RoleGuard>
                         }
@@ -88,15 +221,36 @@ export const AppRoutes = () => {
                     <Route
                         path="general-movements/edit/:id"
                         element={
-                            <RoleGuard roles={['admin']}>
+                            <RoleGuard roles={sellerRoles}>
                                 <GeneralMovementFormPage />
                             </RoleGuard>
                         }
                     />
 
-                    <Route path="services" element={<ServiceList />} />
-                    <Route path="services/new" element={<ServiceFormPage />} />
-                    <Route path="services/edit/:id" element={<ServiceFormPage />} />
+                    <Route
+                        path="services"
+                        element={
+                            <RoleGuard roles={sellerRoles}>
+                                <ServiceList />
+                            </RoleGuard>
+                        }
+                    />
+                    <Route
+                        path="services/new"
+                        element={
+                            <RoleGuard roles={sellerRoles}>
+                                <ServiceFormPage />
+                            </RoleGuard>
+                        }
+                    />
+                    <Route
+                        path="services/edit/:id"
+                        element={
+                            <RoleGuard roles={sellerRoles}>
+                                <ServiceFormPage />
+                            </RoleGuard>
+                        }
+                    />
 
                     <Route
                         path="users"
@@ -123,12 +277,19 @@ export const AppRoutes = () => {
                         }
                     />
 
-                    <Route path="cash-session/:sessionId" element={<CurrentSessionPage />} />
+                    <Route
+                        path="cash-session/:sessionId"
+                        element={
+                            <RoleGuard roles={sellerRoles}>
+                                <CurrentSessionPage />
+                            </RoleGuard>
+                        }
+                    />
 
                     <Route
                         path="closed-cash-sessions"
                         element={
-                            <RoleGuard roles={['admin', 'manager']}>
+                            <RoleGuard roles={accountingRoles}>
                                 <ClosedCashSessionListPage />
                             </RoleGuard>
                         }
@@ -136,7 +297,7 @@ export const AppRoutes = () => {
                     <Route
                         path="closed-cash-sessions/:id"
                         element={
-                            <RoleGuard roles={['admin', 'manager']}>
+                            <RoleGuard roles={accountingRoles}>
                                 <ClosedCashSessionDetailPage />
                             </RoleGuard>
                         }

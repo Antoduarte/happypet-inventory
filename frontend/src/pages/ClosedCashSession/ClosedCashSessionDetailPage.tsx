@@ -37,7 +37,10 @@ export const ClosedCashSessionDetailPage: React.FC = () => {
     const numericId = id ? parseInt(id, 10) : null;
 
     const { data: report, isLoading, error } = useSessionReport(numericId);
-    const { data: movements } = useCashMovements(numericId ?? undefined);
+    const { data: movementsData } = useCashMovements(
+        numericId ? { cash_session: numericId } : undefined,
+    );
+    const movements = movementsData?.results ?? [];
     const [showHistory, setShowHistory] = useState(false);
 
     if (isLoading || !numericId) {

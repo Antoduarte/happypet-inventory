@@ -11,6 +11,9 @@ import type {
     CloseSessionPayload,
     CreateMovementPayload,
     CashRegisterQueryParams,
+    CashMovementQueryParams,
+    CashReport,
+    CashReportParams,
     GeneralMovement,
     CreateGeneralMovementPayload,
     UpdateGeneralMovementPayload,
@@ -144,14 +147,19 @@ class CashMovementService {
         }
     }
 
-    async getMovements(cashSessionId?: number): Promise<CashMovement[]> {
+    async getMovements(params?: CashMovementQueryParams): Promise<PaginatedResponse<CashMovement>> {
         try {
-            const params = cashSessionId ? { cash_session: cashSessionId } : undefined;
-            const response = await api.get<CashMovement[] | { results: CashMovement[] }>(
-                MOVEMENTS_URL,
-                { params },
-            );
-            return Array.isArray(response) ? response : (response.results ?? []);
+            return await api.get<PaginatedResponse<CashMovement>>(MOVEMENTS_URL, { params });
+        } catch (error) {
+            throw AppError.from(error);
+        }
+    }
+}
+
+class CashReportService {
+    async getCashReport(params?: CashReportParams): Promise<CashReport> {
+        try {
+            return await api.get<CashReport>('/reports/cash/', { params });
         } catch (error) {
             throw AppError.from(error);
         }
@@ -220,4 +228,5 @@ class GeneralMovementService {
 export const cashRegisterService = new CashRegisterService();
 export const cashSessionService = new CashSessionService();
 export const cashMovementService = new CashMovementService();
+export const cashReportService = new CashReportService();
 export const generalMovementService = new GeneralMovementService();

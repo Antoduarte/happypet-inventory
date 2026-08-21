@@ -20,7 +20,7 @@ from happypet.products.constants import (
     SALE_ITEM_SERVICE,
 )
 from happypet.sales.models import Sale, SaleItem
-from happypet.users.permissions import IsManagerOrAdmin, ROLE_CASHIER
+from happypet.users.permissions import ROLE_CASHIER, IsManagerOrAdminOrAccountant
 from happypet.utils.pagination import StandardResultsSetPagination
 from .serializers import SaleDetailRowSerializer
 
@@ -283,11 +283,10 @@ class SellerListView(APIView):
     """
     Lightweight list of users with at least one completed sale, for report
     filters. Any role can sell (admins/managers too), so this is driven by
-    actual sales, not by role. Admin/manager only; cashiers don't need it
-    (they only see their own data).
+    actual sales, not by role. Admin, manager and accountant only.
     """
 
-    permission_classes = [IsManagerOrAdmin]
+    permission_classes = [IsManagerOrAdminOrAccountant]
 
     def get(self, request):
         sellers = (

@@ -7,7 +7,11 @@ export interface AuthContextValue {
     login: (
         email: string,
         password: string,
-    ) => Promise<{ cashSessionId: number | null; cashSessionStatus: CashSessionStatus | null }>;
+    ) => Promise<{
+        cashSessionId: number | null;
+        cashSessionStatus: CashSessionStatus | null;
+        role: AuthUser['role'];
+    }>;
     logout: () => void;
     user: AuthUser | null;
     cashSessionId: number | null;

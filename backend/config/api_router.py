@@ -3,6 +3,7 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 from rest_framework.routers import SimpleRouter
 
+from happypet.cash.views import CashReportView
 from happypet.dashboard.views import (
     DashboardStatsView,
     SalesDetailReportView,
@@ -22,6 +23,7 @@ urlpatterns = [
     path("", include("happypet.cash.urls")),
     path("dashboard/", DashboardStatsView.as_view(), name="dashboard-stats"),
     path("reports/sales/", SalesReportView.as_view(), name="sales-report"),
+    path("reports/cash/", CashReportView.as_view(), name="cash-report"),
     path("reports/sellers/", SellerListView.as_view(), name="report-sellers"),
     path("reports/sales/detail/", SalesDetailReportView.as_view(), name="sales-report-detail"),
 ]

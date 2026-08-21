@@ -86,7 +86,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setCashSessionStatus(cashSessionStatusVal);
         setIsAuthenticated(true);
 
-        return { cashSessionId: cashSessionIdVal, cashSessionStatus: cashSessionStatusVal };
+        return { cashSessionId: cashSessionIdVal, cashSessionStatus: cashSessionStatusVal, role };
     }, []);
 
     const clearState = useCallback(() => {

@@ -406,3 +406,28 @@ class GeneralMovementSummarySerializer(serializers.Serializer):
     count = serializers.IntegerField()
     by_payment = GeneralMovementPaymentRowSerializer(many=True)
     by_period = GeneralMovementPeriodRowSerializer(many=True)
+
+
+class CashReportCashierRowSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField(allow_null=True)
+    name = serializers.CharField()
+    income = serializers.CharField()
+    expense = serializers.CharField()
+
+
+class CashReportPeriodRowSerializer(serializers.Serializer):
+    period = serializers.CharField()
+    income = serializers.CharField()
+    expense = serializers.CharField()
+
+
+class CashReportSerializer(serializers.Serializer):
+    granularity = serializers.CharField()
+    start = serializers.DateField()
+    end = serializers.DateField()
+    total_income = serializers.CharField()
+    total_expense = serializers.CharField()
+    balance = serializers.CharField()
+    count = serializers.IntegerField()
+    by_period = CashReportPeriodRowSerializer(many=True)
+    by_cashier = CashReportCashierRowSerializer(many=True)

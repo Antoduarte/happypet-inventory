@@ -10,6 +10,7 @@ import type {
     CloseSessionPayload,
     CreateMovementPayload,
     CashRegisterQueryParams,
+    CashMovementQueryParams,
     CreateGeneralMovementPayload,
     UpdateGeneralMovementPayload,
     GeneralMovementQueryParams,
@@ -117,10 +118,10 @@ export const useResumeSession = () => {
     });
 };
 
-export const useCashMovements = (cashSessionId?: number) => {
+export const useCashMovements = (params?: CashMovementQueryParams) => {
     return useQuery({
-        queryKey: ['cash-movements', cashSessionId],
-        queryFn: () => cashMovementService.getMovements(cashSessionId),
+        queryKey: ['cash-movements', params],
+        queryFn: () => cashMovementService.getMovements(params),
         staleTime: 0,
         refetchOnMount: 'always',
         refetchOnWindowFocus: true,
@@ -206,3 +207,4 @@ export const useDeleteGeneralMovement = () => {
 
 export { useGeneralMovementFilters } from './useGeneralMovementFilters';
 export { useGeneralMovementSummary } from './useGeneralMovementSummary';
+export { useCashReport } from './useCashReport';

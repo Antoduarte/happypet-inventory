@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 
-interface PaginationState {
+export interface PaginationState {
     currentPage: number;
     itemsPerPage: number;
     totalCount: number;

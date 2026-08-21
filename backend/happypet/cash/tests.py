@@ -4,6 +4,8 @@ from decimal import Decimal
 from django.test import TestCase
 from django.utils import timezone
 from django.contrib.auth import get_user_model
+from rest_framework import status
+from rest_framework.test import APIClient
 
 from happypet.cash.models import CashRegister, CashSession, CashMovement, GeneralMovement
 from happypet.sales.models import Sale
@@ -331,6 +333,11 @@ class GeneralMovementPermissionTests(TestCase):
             password="testpass",
             role="cashier",
         )
+        self.accountant = User.objects.create_user(
+            email="accountant@test.com",
+            password="testpass",
+            role="accountant",
+        )
 
     def _payload(self):
         return {
@@ -370,6 +377,40 @@ class GeneralMovementPermissionTests(TestCase):
         client = APIClient()
         client.force_authenticate(user=self.cashier)
         response = client.get("/api/general-movements/")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_accountant_can_list_and_retrieve(self):
+        from rest_framework.test import APIClient
+        from rest_framework import status
+
+        movement = GeneralMovement.objects.create(
+            type=GeneralMovement.TYPE_INCOME,
+            name="Ingreso varios",
+            amount=Decimal("100.00"),
+            date="2026-08-01",
+            payment_method=GeneralMovement.PAYMENT_TRANSFER,
+            created_by=self.admin,
+        )
+
+        client = APIClient()
+        client.force_authenticate(user=self.accountant)
+
+        list_response = client.get("/api/general-movements/")
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(list_response.json()["results"]), 1)
+
+        detail_response = client.get(f"/api/general-movements/{movement.id}/")
+        self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(detail_response.json()["name"], "Ingreso varios")
+
+    def test_accountant_cannot_create(self):
+        from rest_framework.test import APIClient
+        from rest_framework import status
+
+        client = APIClient()
+        client.force_authenticate(user=self.accountant)
+        response = client.post("/api/general-movements/", self._payload(), format="json")
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
@@ -681,6 +722,9 @@ class CashSessionClosedHistoryTests(TestCase):
         self.cashier = User.objects.create_user(
             email="cashier@test.com", password="testpass", role="cashier", name="Cajero"
         )
+        self.accountant = User.objects.create_user(
+            email="accountant@test.com", password="testpass", role="accountant", name="Contador"
+        )
         self.register = CashRegister.objects.create(name="Caja Principal", is_active=True)
         self.client = APIClient()
 
@@ -744,6 +788,25 @@ class CashSessionClosedHistoryTests(TestCase):
         response = self.client.get("/api/cash-sessions/closed/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.json()["results"]), 1)
+
+    def test_accountant_can_list_closed(self):
+        from rest_framework import status
+
+        self._closed_session(self.cashier, closed_at=timezone.now())
+        self.client.force_authenticate(user=self.accountant)
+        response = self.client.get("/api/cash-sessions/closed/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.json()["results"]), 1)
+
+    def test_accountant_can_list_users(self):
+        from rest_framework import status
+
+        self._closed_session(self.cashier, closed_at=timezone.now())
+        self.client.force_authenticate(user=self.accountant)
+        response = self.client.get("/api/cash-sessions/users/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        ids = [user["id"] for user in response.json()]
+        self.assertIn(self.cashier.id, ids)
 
     def test_filter_by_opened_date(self):
         from rest_framework import status
@@ -868,3 +931,231 @@ class CashSessionClosedHistoryTests(TestCase):
         self.assertEqual(Decimal(str(data["expected_amount"])), Decimal("250.00"))
         self.assertIsNone(data["counted_amount"])
         self.assertIsNone(data["difference"])
+
+
+class CashReportViewTests(TestCase):
+    """Tests for the aggregated cash movement report endpoint."""
+
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            email="admin@test.com", password="testpass", role="admin", name="Admin"
+        )
+        self.manager = User.objects.create_user(
+            email="manager@test.com", password="testpass", role="manager", name="Manager"
+        )
+        self.cashier_a = User.objects.create_user(
+            email="cashier-a@test.com", password="testpass", role="cashier", name="Cashier A"
+        )
+        self.cashier_b = User.objects.create_user(
+            email="cashier-b@test.com", password="testpass", role="cashier", name="Cashier B"
+        )
+        self.accountant = User.objects.create_user(
+            email="accountant@test.com", password="testpass", role="accountant", name="Contador"
+        )
+        self.register = CashRegister.objects.create(name="Caja Principal", is_active=True)
+
+        self.session_a = CashSession.objects.create(
+            cash_register=self.register,
+            user=self.cashier_a,
+            opening_amount=Decimal("100.00"),
+            status=CashSession.STATUS_CLOSED,
+        )
+        self.session_b = CashSession.objects.create(
+            cash_register=self.register,
+            user=self.cashier_b,
+            opening_amount=Decimal("100.00"),
+            status=CashSession.STATUS_CLOSED,
+        )
+
+        self.client = APIClient()
+
+    def _movement(self, session, movement_type, amount, created_at):
+        movement = CashMovement.objects.create(
+            cash_session=session,
+            type=movement_type,
+            amount=Decimal(amount),
+            reason="Test movement",
+            created_by=self.admin,
+        )
+        CashMovement.objects.filter(pk=movement.pk).update(created_at=created_at)
+        return movement
+
+    def test_admin_gets_report_totals(self):
+        """Admin should see aggregated income, expense, balance and count."""
+        today = timezone.now()
+        self._movement(self.session_a, CashMovement.TYPE_INCOME, "100.00", today)
+        self._movement(self.session_a, CashMovement.TYPE_EXPENSE, "40.00", today)
+
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get("/api/reports/cash/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertEqual(data["total_income"], "100.00")
+        self.assertEqual(data["total_expense"], "40.00")
+        self.assertEqual(data["balance"], "60.00")
+        self.assertEqual(data["count"], 2)
+
+    def test_report_filters_by_date_range(self):
+        """Report should only include movements within the requested date range."""
+        today = timezone.now()
+        yesterday = today - timedelta(days=1)
+
+        self._movement(self.session_a, CashMovement.TYPE_EXPENSE, "10.00", today)
+        self._movement(self.session_a, CashMovement.TYPE_EXPENSE, "20.00", yesterday)
+
+        start = yesterday.date().isoformat()
+        end = yesterday.date().isoformat()
+
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get(f"/api/reports/cash/?start={start}&end={end}")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json()["total_expense"], "20.00")
+        self.assertEqual(response.json()["count"], 1)
+
+    def test_report_filters_by_cashier(self):
+        """Report should only include movements for the selected cashier."""
+        today = timezone.now()
+        self._movement(self.session_a, CashMovement.TYPE_EXPENSE, "50.00", today)
+        self._movement(self.session_b, CashMovement.TYPE_EXPENSE, "30.00", today)
+
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get(f"/api/reports/cash/?cashier_id={self.cashier_a.id}")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json()["total_expense"], "50.00")
+        self.assertEqual(response.json()["by_cashier"][0]["user_id"], self.cashier_a.id)
+
+    def test_report_groups_by_period(self):
+        """Report should return one row per day when granularity is day."""
+        day_one = timezone.make_aware(datetime(2026, 8, 17, 10, 0))
+        day_two = timezone.make_aware(datetime(2026, 8, 18, 10, 0))
+
+        self._movement(self.session_a, CashMovement.TYPE_INCOME, "10.00", day_two)
+        self._movement(self.session_a, CashMovement.TYPE_EXPENSE, "5.00", day_one)
+
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get(
+            "/api/reports/cash/?granularity=day&start=2026-08-17&end=2026-08-18"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        by_period = response.json()["by_period"]
+        self.assertEqual(len(by_period), 2)
+
+    def test_manager_can_access_report(self):
+        """Manager should be able to access the cash report."""
+        today = timezone.now()
+        self._movement(self.session_a, CashMovement.TYPE_EXPENSE, "25.00", today)
+
+        self.client.force_authenticate(user=self.manager)
+        response = self.client.get("/api/reports/cash/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json()["total_expense"], "25.00")
+
+    def test_accountant_can_access_report(self):
+        """Accountant should be able to access the cash report."""
+        today = timezone.now()
+        self._movement(self.session_a, CashMovement.TYPE_EXPENSE, "25.00", today)
+
+        self.client.force_authenticate(user=self.accountant)
+        response = self.client.get("/api/reports/cash/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json()["total_expense"], "25.00")
+
+    def test_cashier_cannot_access_report(self):
+        """Cashier should receive 403 when accessing the cash report."""
+        self.client.force_authenticate(user=self.cashier_a)
+        response = self.client.get("/api/reports/cash/")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class CashMovementFilterTests(TestCase):
+    """Tests for the extended cash movement list filters."""
+
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            email="admin@test.com", password="testpass", role="admin", name="Admin"
+        )
+        self.cashier_a = User.objects.create_user(
+            email="cashier-a@test.com", password="testpass", role="cashier", name="Cashier A"
+        )
+        self.cashier_b = User.objects.create_user(
+            email="cashier-b@test.com", password="testpass", role="cashier", name="Cashier B"
+        )
+        self.register = CashRegister.objects.create(name="Caja Principal", is_active=True)
+
+        self.session_a = CashSession.objects.create(
+            cash_register=self.register,
+            user=self.cashier_a,
+            opening_amount=Decimal("100.00"),
+            status=CashSession.STATUS_CLOSED,
+        )
+        self.session_b = CashSession.objects.create(
+            cash_register=self.register,
+            user=self.cashier_b,
+            opening_amount=Decimal("100.00"),
+            status=CashSession.STATUS_CLOSED,
+        )
+
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.admin)
+
+    def _movement(self, session, movement_type, amount, created_at):
+        movement = CashMovement.objects.create(
+            cash_session=session,
+            type=movement_type,
+            amount=Decimal(amount),
+            reason="Test movement",
+            created_by=self.admin,
+        )
+        CashMovement.objects.filter(pk=movement.pk).update(created_at=created_at)
+        return movement
+
+    def test_filter_by_type(self):
+        """List should filter movements by type."""
+        today = timezone.now()
+        self._movement(self.session_a, CashMovement.TYPE_INCOME, "100.00", today)
+        self._movement(self.session_a, CashMovement.TYPE_EXPENSE, "50.00", today)
+
+        response = self.client.get("/api/cash-movements/?type=expense")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        results = response.json()["results"]
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["type"], CashMovement.TYPE_EXPENSE)
+
+    def test_filter_by_cashier_id(self):
+        """List should filter movements by cashier."""
+        today = timezone.now()
+        self._movement(self.session_a, CashMovement.TYPE_EXPENSE, "20.00", today)
+        self._movement(self.session_b, CashMovement.TYPE_EXPENSE, "30.00", today)
+
+        response = self.client.get(f"/api/cash-movements/?cashier_id={self.cashier_a.id}")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        results = response.json()["results"]
+        self.assertEqual(len(results), 1)
+        self.assertEqual(Decimal(results[0]["amount"]), Decimal("20.00"))
+
+    def test_filter_by_date_range(self):
+        """List should filter movements by created_at date range."""
+        today = timezone.now()
+        yesterday = today - timedelta(days=1)
+
+        self._movement(self.session_a, CashMovement.TYPE_EXPENSE, "10.00", today)
+        self._movement(self.session_a, CashMovement.TYPE_EXPENSE, "20.00", yesterday)
+
+        start = yesterday.date().isoformat()
+        end = yesterday.date().isoformat()
+
+        response = self.client.get(f"/api/cash-movements/?date_from={start}&date_to={end}")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        results = response.json()["results"]
+        self.assertEqual(len(results), 1)
+        self.assertEqual(Decimal(results[0]["amount"]), Decimal("20.00"))

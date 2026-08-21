@@ -6,7 +6,7 @@ export const userSchema = z
         email: z.string().email('Debe ser un correo electrónico válido'),
         password: z.string().optional().or(z.literal('')),
         password_confirm: z.string().optional().or(z.literal('')),
-        role: z.enum(['admin', 'manager', 'cashier']),
+        role: z.enum(['admin', 'manager', 'cashier', 'accountant']),
         code: z.string().max(6).optional().or(z.literal('')),
         is_active: z.boolean(),
     })

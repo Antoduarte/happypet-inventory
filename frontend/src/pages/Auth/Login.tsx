@@ -30,7 +30,12 @@ export const Login: React.FC = () => {
 
     const onSubmit = async ({ email, password }: LoginForm) => {
         try {
-            const { cashSessionId, cashSessionStatus } = await login(email, password);
+            const { cashSessionId, cashSessionStatus, role } = await login(email, password);
+
+            if (role === 'accountant') {
+                navigate('/reports/cash', { replace: true });
+                return;
+            }
 
             if (cashSessionStatus === 'suspended' && cashSessionId) {
                 navigate(`/cash/resume/${cashSessionId}`, { replace: true });

@@ -150,6 +150,52 @@ export interface CashRegisterQueryParams {
     is_active?: boolean;
 }
 
+export interface CashMovementQueryParams {
+    cash_session?: number;
+    date_from?: string;
+    date_to?: string;
+    cashier_id?: number;
+    type?: MovementType;
+    page?: number;
+    page_size?: number;
+}
+
+// ---------------------------------------------------------------------------
+// Cash Report (ingresos/egresos de caja)
+// ---------------------------------------------------------------------------
+
+export interface CashReportParams {
+    start?: string;
+    end?: string;
+    granularity?: ReportGranularity;
+    cashier_id?: number;
+}
+
+export interface CashReportPeriodPoint {
+    period: string;
+    income: string;
+    expense: string;
+}
+
+export interface CashReportCashierRow {
+    user_id: number | null;
+    name: string;
+    income: string;
+    expense: string;
+}
+
+export interface CashReport {
+    granularity: ReportGranularity;
+    start: string;
+    end: string;
+    total_income: string;
+    total_expense: string;
+    balance: string;
+    count: number;
+    by_period: CashReportPeriodPoint[];
+    by_cashier: CashReportCashierRow[];
+}
+
 // ---------------------------------------------------------------------------
 // General Movements (ingresos/egresos generales del negocio)
 // ---------------------------------------------------------------------------

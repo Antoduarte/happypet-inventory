@@ -7,7 +7,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 import pdfkit
 
-from happypet.users.permissions import CanTransitionSale
+from happypet.users.permissions import CanTransitionSale, HasSellerRole
 from happypet.utils.pagination import StandardResultsSetPagination
 from happypet.utils.authorization import check_manager_authorization
 from .models import Sale
@@ -39,7 +39,7 @@ class SaleViewSet(viewsets.ModelViewSet):
         .order_by("-sale_date")
     )
     serializer_class = SaleSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [HasSellerRole]
     pagination_class = StandardResultsSetPagination
 
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]

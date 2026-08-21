@@ -3,7 +3,6 @@ from django.utils import timezone
 # DRF
 from rest_framework import viewsets, status
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
 
 
 # DRF filters
@@ -13,6 +12,7 @@ from rest_framework import filters
 # Utils
 from happypet.utils.pagination import StandardResultsSetPagination
 from happypet.utils.authorization import check_manager_authorization
+from happypet.users.permissions import CanViewCatalog
 
 # Models
 from .models import Service
@@ -23,7 +23,7 @@ from .serializers import ServiceSerializer
 class ServiceViewSet(viewsets.ModelViewSet):
     queryset = Service.objects.select_related("category").all()
     serializer_class = ServiceSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [CanViewCatalog]
     pagination_class = StandardResultsSetPagination
 
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
@@ -33,6 +33,12 @@ class ServiceViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return super().get_queryset().filter(deleted_at__isnull=True)
+
+    def create(self, request, *args, **kwargs):
+        auth_error = check_manager_authorization(request)
+        if auth_error:
+            return auth_error
+        return super().create(request, *args, **kwargs)
 
     def update(self, request, *args, **kwargs):
         auth_error = check_manager_authorization(request)

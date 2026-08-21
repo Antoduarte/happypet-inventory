@@ -1,14 +1,5 @@
 import React, { useMemo } from 'react';
-import {
-    Bar,
-    BarChart,
-    CartesianGrid,
-    Legend,
-    ResponsiveContainer,
-    Tooltip,
-    XAxis,
-    YAxis,
-} from 'recharts';
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { ReportGranularity } from '@/interfaces/report';
 import type { GeneralMovementPeriodPoint } from '@/interfaces/cash';
 import { formatCurrency } from '@/utils/format';
@@ -80,41 +71,52 @@ export const GeneralMovementTrendChart: React.FC<GeneralMovementTrendChartProps>
     }
 
     return (
-        <div className="h-72 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
-                    <XAxis
-                        dataKey="label"
-                        tick={{ fontSize: 12, fill: '#64748b' }}
-                        tickLine={false}
-                        axisLine={{ stroke: '#e2e8f0' }}
-                    />
-                    <YAxis
-                        tick={{ fontSize: 12, fill: '#64748b' }}
-                        tickLine={false}
-                        axisLine={false}
-                        width={70}
-                        tickFormatter={(v: number) => `C$ ${v.toLocaleString('es-NI')}`}
-                    />
-                    <Tooltip content={<ChartTooltip />} cursor={{ fill: '#680a7d0d' }} />
-                    <Legend />
-                    <Bar
-                        dataKey="income"
-                        name="Ingresos"
-                        fill="#059669"
-                        radius={[4, 4, 0, 0]}
-                        maxBarSize={40}
-                    />
-                    <Bar
-                        dataKey="expense"
-                        name="Egresos"
-                        fill="#e11d48"
-                        radius={[4, 4, 0, 0]}
-                        maxBarSize={40}
-                    />
-                </BarChart>
-            </ResponsiveContainer>
+        <div>
+            <div className="flex items-center justify-center gap-6 mb-4">
+                <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-sm bg-emerald-600" />
+                    <span className="text-sm text-slate-600">Ingresos</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-sm bg-rose-600" />
+                    <span className="text-sm text-slate-600">Egresos</span>
+                </div>
+            </div>
+            <div className="h-72 w-full min-w-0 overflow-hidden">
+                <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData} margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                        <XAxis
+                            dataKey="label"
+                            tick={{ fontSize: 12, fill: '#64748b' }}
+                            tickLine={false}
+                            axisLine={{ stroke: '#e2e8f0' }}
+                        />
+                        <YAxis
+                            tick={{ fontSize: 12, fill: '#64748b' }}
+                            tickLine={false}
+                            axisLine={false}
+                            width={70}
+                            tickFormatter={(v: number) => `C$ ${v.toLocaleString('es-NI')}`}
+                        />
+                        <Tooltip content={<ChartTooltip />} cursor={{ fill: '#680a7d0d' }} />
+                        <Bar
+                            dataKey="income"
+                            name="Ingresos"
+                            fill="#059669"
+                            radius={[4, 4, 0, 0]}
+                            maxBarSize={40}
+                        />
+                        <Bar
+                            dataKey="expense"
+                            name="Egresos"
+                            fill="#e11d48"
+                            radius={[4, 4, 0, 0]}
+                            maxBarSize={40}
+                        />
+                    </BarChart>
+                </ResponsiveContainer>
+            </div>
         </div>
     );
 };

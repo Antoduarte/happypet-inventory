@@ -29,6 +29,7 @@ import {
 const ROLE_OPTIONS = [
     { value: 'cashier', label: 'Cajero' },
     { value: 'manager', label: 'Gerente' },
+    { value: 'accountant', label: 'Contador' },
     { value: 'admin', label: 'Administrador' },
 ];
 

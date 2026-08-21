@@ -6,9 +6,10 @@ import type { UserRole } from '@/interfaces/auth';
 interface RoleGuardProps {
     roles: UserRole[];
     children: React.ReactNode;
+    fallback?: string;
 }
 
-export const RoleGuard: React.FC<RoleGuardProps> = ({ roles, children }) => {
+export const RoleGuard: React.FC<RoleGuardProps> = ({ roles, children, fallback = '/' }) => {
     const { user } = useAuth();
     const role = user?.role ?? null;
 
@@ -16,5 +17,5 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({ roles, children }) => {
         return <>{children}</>;
     }
 
-    return <Navigate to="/" replace />;
+    return <Navigate to={fallback} replace />;
 };
