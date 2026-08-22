@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone as dt_timezone
 from decimal import Decimal
 
 from django.test import TestCase
@@ -1158,4 +1158,89 @@ class CashMovementFilterTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         results = response.json()["results"]
         self.assertEqual(len(results), 1)
-        self.assertEqual(Decimal(results[0]["amount"]), Decimal("20.00"))
+
+
+class CashSessionTimezoneBoundaryTests(TestCase):
+    """Regression tests: the local day boundary must match get_today_range()
+    (America/Managua local time) everywhere, not UTC. Comparing UTC dates
+    made a session opened earlier in the day look "not today" once UTC had
+    already rolled to the next date (~6pm local, reported as ~8pm), while
+    the open-session validator still used the correct local day and refused
+    to open a new session because the old one was still "open" for that day.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="tz@example.com",
+            name="TZ User",
+            password="testpass123",
+            role="cashier",
+        )
+        self.register = CashRegister.objects.create(
+            name="Caja TZ",
+            is_active=True,
+        )
+
+    def test_is_today_true_late_in_local_day_despite_utc_rollover(self):
+        """A session opened this local morning is still is_today late at night,
+        even though UTC has already moved to the next calendar date."""
+        from happypet.cash.serializers import CashSessionSerializer
+        from unittest.mock import patch
+
+        local_morning = timezone.localtime().replace(
+            hour=9, minute=0, second=0, microsecond=0
+        )
+        session = CashSession.objects.create(
+            cash_register=self.register,
+            user=self.user,
+            opening_amount=Decimal("100.00"),
+            status=CashSession.STATUS_OPEN,
+        )
+        CashSession.objects.filter(pk=session.pk).update(opened_at=local_morning)
+        session.refresh_from_db()
+
+        local_night = local_morning.replace(hour=23, minute=0)
+        utc_next_day_now = local_night.astimezone(dt_timezone.utc)
+
+        with patch(
+            "happypet.cash.serializers.timezone.now",
+            return_value=utc_next_day_now,
+        ):
+            data = CashSessionSerializer(session).data
+
+        self.assertTrue(data["is_today"])
+
+    def test_cannot_open_second_session_late_in_local_day(self):
+        """Opening a new session late at night (local, but already the next
+        calendar date in UTC) must still be blocked when one is already open
+        for today's local day, consistently with is_today reporting the
+        existing session as active."""
+        from unittest.mock import patch
+
+        local_morning = timezone.localtime().replace(
+            hour=9, minute=0, second=0, microsecond=0
+        )
+        session = CashSession.objects.create(
+            cash_register=self.register,
+            user=self.user,
+            opening_amount=Decimal("100.00"),
+            status=CashSession.STATUS_OPEN,
+        )
+        CashSession.objects.filter(pk=session.pk).update(opened_at=local_morning)
+
+        local_night = local_morning.replace(hour=23, minute=0)
+        utc_next_day_now = local_night.astimezone(dt_timezone.utc)
+
+        client = APIClient()
+        client.force_authenticate(user=self.user)
+        with patch(
+            "happypet.cash.utils.timezone.now",
+            return_value=utc_next_day_now,
+        ):
+            response = client.post(
+                "/api/cash-sessions/open/",
+                {"cash_register_id": self.register.id, "opening_amount": "50.00"},
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

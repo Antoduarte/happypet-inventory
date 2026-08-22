@@ -1,4 +1,3 @@
-from datetime import timedelta
 from decimal import Decimal
 
 from django.db import models
@@ -108,7 +107,7 @@ class CashSessionSerializer(serializers.ModelSerializer):
         return CashSessionService._calculate_expected_amount(obj)
 
     def get_is_today(self, obj):
-        return obj.opened_at.date() == timezone.now().date()
+        return timezone.localtime(obj.opened_at).date() == timezone.localtime().date()
 
 
 class CashSessionActiveSerializer(serializers.Serializer):
@@ -138,8 +137,8 @@ class CashSessionOpenSerializer (serializers.Serializer):
         if not register.is_active:
             raise serializers.ValidationError("Cash register is not active.")
 
-        today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        today_end = today_start + timedelta(days=1)
+        from happypet.cash.utils import get_today_range
+        today_start, today_end = get_today_range()
         if CashSession.objects.filter(
             cash_register=register,
             status__in=[CashSession.STATUS_OPEN, CashSession.STATUS_SUSPENDED],
