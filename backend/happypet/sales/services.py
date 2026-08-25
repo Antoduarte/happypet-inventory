@@ -271,7 +271,9 @@ class SaleStatusService:
     Orquesta las transiciones de estado de una venta de forma atómica.
 
     Flujo:
-      pending → completed   → opcionalmente crea CashMovement (cash + sesión abierta)
+      pending → completed   → opcionalmente crea CashMovement (cash + sesión abierta);
+                              ventas a crédito se re-vinculan a la sesión abierta
+                              de hoy del usuario que cobra (cash/card/transfer)
       pending → cancelled   → revierte stock, crea InventoryMovement(type=in)
       completed → cancelled → revierte stock, crea InventoryMovement(type=in), egreso en caja
       cancelled             → bloqueado (estado terminal)
@@ -313,7 +315,11 @@ class SaleStatusService:
         # ── Ejecutar side effects ────────────────────────────────────────────
         update_fields = ["status", "payment_type"]
         if target_status == SAILE_STATUS_COMPLETED:
-            if was_credit and locked_sale.payment_type == PAYMENT_CASH:
+            if was_credit:
+                # Re-link the sale to the completing user's open session so the
+                # collection shows up on today's closure breakdown regardless of
+                # the final method (cash/card/transfer). Soft: with no open
+                # session the sale simply completes unlinked.
                 locked_sale.cash_session = self._resolve_cash_session_for_completion(
                     locked_sale, user
                 )
@@ -349,7 +355,8 @@ class SaleStatusService:
             return
 
         if was_credit:
-            # Credit sales completed as cash must be attached to the current open session.
+            # Only cash completion strictly requires an open session (money enters
+            # the drawer); card/transfer completions never reach this branch.
             if not sale.cash_session:
                 raise ValidationError({"cash_session": "No open cash session found."})
             if sale.cash_session.status != CashSession.STATUS_OPEN:

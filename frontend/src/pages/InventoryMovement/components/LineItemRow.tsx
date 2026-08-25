@@ -81,9 +81,8 @@ export const LineItemRow: React.FC<LineItemRowProps> = ({
             <input
                 type="number"
                 value={item.quantity}
-                min="0.0001"
                 step="any"
-                onChange={(e) => onQuantityChange(parseFloat(e.target.value) || 0)}
+                onChange={(e) => onQuantityChange(parseFloat(e.target.value))}
                 className="w-full px-3 py-[7px] bg-white border border-slate-300 rounded-lg text-xs text-right focus:border-brand-light focus:ring-1 focus:ring-brand-light/10 transition-all outline-none hover:border-slate-400"
             />
         </div>
