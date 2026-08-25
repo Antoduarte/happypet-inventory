@@ -154,6 +154,23 @@ class CashMovementService {
             throw AppError.from(error);
         }
     }
+
+    /** Fetches every movement matching the filters, walking all pages. */
+    async getAllMovements(params?: CashMovementQueryParams): Promise<CashMovement[]> {
+        const movements: CashMovement[] = [];
+        let page = 1;
+        // Backend caps page_size at 1000 (StandardResultsSetPagination).
+        const pageSize = 1000;
+
+        for (;;) {
+            const data = await this.getMovements({ ...params, page, page_size: pageSize });
+            movements.push(...data.results);
+            if (!data.next) break;
+            page += 1;
+        }
+
+        return movements;
+    }
 }
 
 class CashReportService {
@@ -185,6 +202,23 @@ class GeneralMovementService {
         } catch (error) {
             throw AppError.from(error);
         }
+    }
+
+    /** Fetches every movement matching the filters, walking all pages. */
+    async getAllMovements(params?: GeneralMovementQueryParams): Promise<GeneralMovement[]> {
+        const movements: GeneralMovement[] = [];
+        let page = 1;
+        // Backend caps page_size at 1000 (StandardResultsSetPagination).
+        const pageSize = 1000;
+
+        for (;;) {
+            const data = await this.getMovements({ ...params, page, page_size: pageSize });
+            movements.push(...data.results);
+            if (!data.next) break;
+            page += 1;
+        }
+
+        return movements;
     }
 
     async getSummary(params?: GeneralMovementSummaryParams): Promise<GeneralMovementSummary> {

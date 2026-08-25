@@ -1,6 +1,8 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { Download } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Card } from '../../components/ui/Card';
+import { Button } from '../../components/ui/Button';
 import { CashReportFilters } from './components/CashReportFilters';
 import { CashReportSummary } from './components/CashReportSummary';
 import { CashReportTrendChart } from './components/CashReportTrendChart';
@@ -8,6 +10,8 @@ import { CashMovementsTable } from './components/CashMovementsTable';
 import { useCashReport } from '../../hooks/cash';
 import { useCashMovementFilters } from '../../hooks/cash/useCashMovementFilters';
 import { usePagination } from '../../hooks/usePagination';
+import { cashMovementService } from '../../services/cash';
+import { exportCashMovementsPdf } from '../../utils/exportPdf';
 import type { ReportGranularity, ReportPreset } from '../../interfaces/report';
 import type { MovementType } from '../../interfaces/cash';
 
@@ -32,6 +36,7 @@ export const CashReportPage: React.FC = () => {
         setType,
         cashierId,
         setCashierId,
+        dateRange,
         reportParams,
         movementsParams,
     } = useCashMovementFilters();
@@ -39,10 +44,36 @@ export const CashReportPage: React.FC = () => {
     const { pagination, setPage, handleSearchChange, handleSortChange } = usePagination();
 
     const { report, isLoading, error, fetchReport } = useCashReport();
+    const [isExporting, setIsExporting] = useState(false);
 
     useEffect(() => {
         fetchReport(reportParams);
     }, [reportParams, fetchReport]);
+
+    const handleExportMovements = async () => {
+        setIsExporting(true);
+        try {
+            const movements = await cashMovementService.getAllMovements(movementsParams);
+            exportCashMovementsPdf({
+                movements,
+                start: dateRange.start,
+                end: dateRange.end,
+                totals: report
+                    ? {
+                          total_income: report.total_income,
+                          total_expense: report.total_expense,
+                          balance: report.balance,
+                      }
+                    : null,
+                typeFilter: type || undefined,
+                cashierId,
+            });
+        } catch {
+            // Silent: the movements table already surfaces fetch errors on screen.
+        } finally {
+            setIsExporting(false);
+        }
+    };
 
     const resetPage = () => setPage(1);
 
@@ -121,7 +152,20 @@ export const CashReportPage: React.FC = () => {
                         )}
                     </Card>
 
-                    <Card title="Movimientos de Caja">
+                    <Card
+                        title="Movimientos de Caja"
+                        action={
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={handleExportMovements}
+                                isLoading={isExporting}
+                            >
+                                <Download size={16} className="mr-1.5" />
+                                {isExporting ? 'Exportando…' : 'Exportar PDF'}
+                            </Button>
+                        }
+                    >
                         <CashMovementsTable
                             params={movementsParams}
                             pagination={pagination}

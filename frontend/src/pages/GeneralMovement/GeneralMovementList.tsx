@@ -1,6 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, TrendingUp, TrendingDown, ChartNoAxesCombined } from 'lucide-react';
+import { Download, Plus, TrendingUp, TrendingDown, ChartNoAxesCombined } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -11,8 +11,10 @@ import { useGeneralMovements, useGeneralMovementSummary } from '@/hooks/cash';
 import { useGeneralMovementFilters } from '@/hooks/cash/useGeneralMovementFilters';
 import { usePagination } from '@/hooks/usePagination';
 import { usePermission } from '@/hooks/usePermission';
+import { generalMovementService } from '@/services/cash';
 import { formatCurrency } from '@/utils/format';
 import { getPaymentTypeLabel } from '@/utils/payment';
+import { exportGeneralMovementsPdf } from '@/utils/exportPdf';
 import { GeneralMovementFilters } from './components/GeneralMovementFilters';
 import { GeneralMovementTrendChart } from './components/GeneralMovementTrendChart';
 import type { GeneralMovement } from '@/interfaces/cash';
@@ -87,6 +89,33 @@ export const GeneralMovementList: React.FC = () => {
 
     const movements = useMemo(() => data?.results ?? [], [data]);
     const totalCount = data?.count ?? 0;
+    const [isExporting, setIsExporting] = useState(false);
+
+    const handleExportMovements = async () => {
+        setIsExporting(true);
+        try {
+            const allMovements = await generalMovementService.getAllMovements({
+                search,
+                ordering,
+                type: type || undefined,
+                payment_method: paymentMethod || undefined,
+                date_from: dateRange.start,
+                date_to: dateRange.end,
+            });
+            exportGeneralMovementsPdf({
+                movements: allMovements,
+                start: dateRange.start,
+                end: dateRange.end,
+                summary,
+                typeFilter: type || undefined,
+                paymentMethodFilter: paymentMethod || undefined,
+            });
+        } catch {
+            // Silent: the table already surfaces fetch errors on screen.
+        } finally {
+            setIsExporting(false);
+        }
+    };
 
     const columns: ColumnDef<GeneralMovement>[] = useMemo(
         () => [
@@ -249,7 +278,20 @@ export const GeneralMovementList: React.FC = () => {
                             isLoading={isSummaryLoading}
                         />
                     </div>
-                    <Card>
+                    <Card
+                        title="Movimientos"
+                        action={
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={handleExportMovements}
+                                isLoading={isExporting}
+                            >
+                                <Download size={16} className="mr-1.5" />
+                                {isExporting ? 'Exportando…' : 'Exportar PDF'}
+                            </Button>
+                        }
+                    >
                         <DataTable
                             data={movements}
                             columns={columns}

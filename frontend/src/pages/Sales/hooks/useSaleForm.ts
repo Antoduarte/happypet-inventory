@@ -49,7 +49,7 @@ const productItemSchema = z.object({
         .min(1, 'El producto es requerido'),
     /** Optional presentation ID � if set, stock is deducted via multiplier */
     presentationId: z.coerce.number().optional().nullable(),
-    quantity: z.coerce.number().min(0.0001, 'M�nimo 0.0001'),
+    quantity: z.coerce.number().min(0.0001, 'Minimo 0.0001'),
     unitPrice: z.coerce.number().min(0),
     subtotal: z.number().min(0),
     discount_percentage: z.coerce.number().default(0),

@@ -20,7 +20,7 @@ import { useReports } from '../../hooks/useReports';
 import { usePermission } from '../../hooks/usePermission';
 import { reportService } from '../../services/report';
 import { formatCurrency } from '../../utils/format';
-import { exportSalesDetailCsv } from '../../utils/exportCsv';
+import { exportSalesDetailPdf } from '../../utils/exportPdf';
 import { toISODate, addDays, resolvePreset } from '../../utils/dateRange';
 import type { ReportGranularity, ReportPreset } from '../../interfaces/report';
 import { SalesTrendChart } from './components/SalesTrendChart';
@@ -71,7 +71,7 @@ export const ReportsPage: React.FC = () => {
                 end: params.end,
                 cashier_id: sellerId ?? undefined,
             });
-            exportSalesDetailCsv(rows, params.start, params.end);
+            exportSalesDetailPdf(rows, params.start, params.end);
         } catch {
             // Silent: the detail table already surfaces fetch errors on screen.
         } finally {
@@ -202,7 +202,7 @@ export const ReportsPage: React.FC = () => {
                                 isLoading={isExporting}
                             >
                                 <Download size={16} className="mr-1.5" />
-                                {isExporting ? 'Exportando…' : 'Exportar CSV'}
+                                {isExporting ? 'Exportando…' : 'Exportar PDF'}
                             </Button>
                         }
                     >

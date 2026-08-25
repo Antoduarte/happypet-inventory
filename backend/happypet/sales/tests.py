@@ -101,6 +101,7 @@ from happypet.products.constants import (
     SAILE_STATUS_COMPLETED,
     SAILE_STATUS_CANCELLED,
     PAYMENT_CARD,
+    PAYMENT_TRANSFER,
 )
 from happypet.products.models import ProductPresentation, InventoryMovement
 from happypet.cash.models import CashMovement
@@ -350,6 +351,171 @@ class CashMovementTests(TestCase):
         sale = self._create_sale(payment_type=PAYMENT_CASH, cash_session=None)
         self.service.transition(sale, SAILE_STATUS_COMPLETED, self.user)
         self.assertEqual(CashMovement.objects.count(), 0)
+
+
+class CreditCompletionSessionTests(TestCase):
+    """Tests for completing credit sales: session re-linking and cash movements.
+
+    Any credit sale completed (cash/card/transfer) is re-linked to the
+    completing user's open session of today. Cash additionally creates an
+    income CashMovement; card/transfer never touch the drawer.
+    """
+
+    def setUp(self):
+        self.category = Category.objects.create(name="Test Cat", type="product")
+        self.product = Product.objects.create(
+            name="Test Product",
+            category=self.category,
+            stock=Decimal("100.0000"),
+            base_unit="u",
+        )
+        self.user = User.objects.create_user(
+            email="admin@test.com", password="testpass", role="admin"
+        )
+        self.register = CashRegister.objects.create(name="Main Register")
+        self.session = CashSession.objects.create(
+            cash_register=self.register,
+            user=self.user,
+            opening_amount=Decimal("100.00"),
+            status=CashSession.STATUS_OPEN,
+        )
+        self.service = SaleStatusService()
+
+    def _create_credit_sale(self, cash_session=None):
+        sale = Sale.objects.create(
+            status=SAILE_STATUS_PENDING,
+            payment_type=PAYMENT_CREDIT,
+            total_price=Decimal("50.00"),
+            subtotal=Decimal("50.00"),
+            quantity=1,
+            cash_session=cash_session,
+        )
+        SaleItem.objects.create(
+            sale=sale,
+            type=SALE_ITEM_PRODUCT,
+            product=self.product,
+            quantity=Decimal("1.0000"),
+            price_per_item=Decimal("50.00"),
+            subtotal=Decimal("50.00"),
+            total_price=Decimal("50.00"),
+        )
+        return sale
+
+    # ── Card / transfer re-linking ────────────────────────────────────────
+
+    def test_complete_credit_as_card_relinks_to_open_session(self):
+        sale = self._create_credit_sale()
+        result = self.service.transition(
+            sale, SAILE_STATUS_COMPLETED, self.user, new_payment_type=PAYMENT_CARD
+        )
+        result.refresh_from_db()
+        self.assertEqual(result.cash_session, self.session)
+        self.assertEqual(CashMovement.objects.count(), 0)
+
+    def test_complete_credit_as_transfer_relinks_to_open_session(self):
+        sale = self._create_credit_sale()
+        result = self.service.transition(
+            sale, SAILE_STATUS_COMPLETED, self.user, new_payment_type=PAYMENT_TRANSFER
+        )
+        result.refresh_from_db()
+        self.assertEqual(result.cash_session, self.session)
+        self.assertEqual(CashMovement.objects.count(), 0)
+
+    def test_complete_credit_as_card_moves_out_of_old_closed_session(self):
+        old_register = CashRegister.objects.create(name="Old Register")
+        old_session = CashSession.objects.create(
+            cash_register=old_register,
+            user=self.user,
+            opening_amount=Decimal("10.00"),
+            status=CashSession.STATUS_CLOSED,
+        )
+        sale = self._create_credit_sale(cash_session=old_session)
+        result = self.service.transition(
+            sale, SAILE_STATUS_COMPLETED, self.user, new_payment_type=PAYMENT_CARD
+        )
+        result.refresh_from_db()
+        self.assertEqual(result.cash_session, self.session)
+
+    def test_complete_credit_as_card_without_open_session_completes_unlinked(self):
+        self.session.status = CashSession.STATUS_CLOSED
+        self.session.save()
+        sale = self._create_credit_sale()
+        result = self.service.transition(
+            sale, SAILE_STATUS_COMPLETED, self.user, new_payment_type=PAYMENT_CARD
+        )
+        result.refresh_from_db()
+        self.assertIsNone(result.cash_session)
+        self.assertEqual(result.status, SAILE_STATUS_COMPLETED)
+
+    # ── Cash regression ───────────────────────────────────────────────────
+
+    def test_complete_credit_as_cash_creates_income_in_current_session(self):
+        sale = self._create_credit_sale()
+        result = self.service.transition(
+            sale, SAILE_STATUS_COMPLETED, self.user, new_payment_type=PAYMENT_CASH
+        )
+        result.refresh_from_db()
+        self.assertEqual(result.cash_session, self.session)
+        movement = CashMovement.objects.filter(cash_session=self.session).first()
+        self.assertIsNotNone(movement)
+        self.assertEqual(movement.type, CashMovement.TYPE_INCOME)
+        self.assertEqual(movement.amount, Decimal("50.00"))
+
+    def test_complete_credit_as_cash_without_open_session_raises(self):
+        self.session.status = CashSession.STATUS_CLOSED
+        self.session.save()
+        sale = self._create_credit_sale()
+        with self.assertRaisesMessage(ValidationError, "No open cash session found."):
+            self.service.transition(
+                sale, SAILE_STATUS_COMPLETED, self.user, new_payment_type=PAYMENT_CASH
+            )
+
+    # ── Validation regressions ────────────────────────────────────────────
+
+    def test_complete_credit_without_payment_type_raises(self):
+        sale = self._create_credit_sale()
+        with self.assertRaisesMessage(ValidationError, "Required to complete"):
+            self.service.transition(sale, SAILE_STATUS_COMPLETED, self.user)
+
+    def test_complete_credit_as_credit_raises(self):
+        sale = self._create_credit_sale()
+        with self.assertRaisesMessage(ValidationError, "Cannot complete"):
+            self.service.transition(
+                sale, SAILE_STATUS_COMPLETED, self.user, new_payment_type=PAYMENT_CREDIT
+            )
+
+    # ── Non-credit sales untouched ────────────────────────────────────────
+
+    def test_regular_card_sale_keeps_its_session(self):
+        other_user = User.objects.create_user(
+            email="other@test.com", password="testpass", role="cashier"
+        )
+        other_session = CashSession.objects.create(
+            cash_register=self.register,
+            user=other_user,
+            opening_amount=Decimal("0.00"),
+            status=CashSession.STATUS_OPEN,
+        )
+        sale = Sale.objects.create(
+            status=SAILE_STATUS_PENDING,
+            payment_type=PAYMENT_CARD,
+            total_price=Decimal("50.00"),
+            subtotal=Decimal("50.00"),
+            quantity=1,
+            cash_session=other_session,
+        )
+        SaleItem.objects.create(
+            sale=sale,
+            type=SALE_ITEM_PRODUCT,
+            product=self.product,
+            quantity=Decimal("1.0000"),
+            price_per_item=Decimal("50.00"),
+            subtotal=Decimal("50.00"),
+            total_price=Decimal("50.00"),
+        )
+        result = self.service.transition(sale, SAILE_STATUS_COMPLETED, other_user)
+        result.refresh_from_db()
+        self.assertEqual(result.cash_session, other_session)
 
 
 class SaleStatusPermissionTests(APITestCase):
