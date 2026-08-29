@@ -87,6 +87,10 @@ export const GeneralMovementList: React.FC = () => {
         resetPage();
     };
 
+    const navigateToDetails = ({ id }: GeneralMovement) => {
+        if (isAdmin) navigate(`/general-movements/edit/${id}`);
+    };
+
     const movements = useMemo(() => data?.results ?? [], [data]);
     const totalCount = data?.count ?? 0;
     const [isExporting, setIsExporting] = useState(false);
@@ -305,9 +309,7 @@ export const GeneralMovementList: React.FC = () => {
                             onPageChange={setPage}
                             onSearchChange={handleSearchChange}
                             onSortChange={handleSortChange}
-                            onRowClick={(item: GeneralMovement) =>
-                                navigate(`/general-movements/edit/${item.id}`)
-                            }
+                            onRowClick={navigateToDetails}
                         />
                     </Card>
 

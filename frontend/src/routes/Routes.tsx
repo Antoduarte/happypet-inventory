@@ -205,7 +205,7 @@ export const AppRoutes = () => {
                     <Route
                         path="general-movements"
                         element={
-                            <RoleGuard roles={sellerRoles}>
+                            <RoleGuard roles={accountingRoles}>
                                 <GeneralMovementList />
                             </RoleGuard>
                         }
