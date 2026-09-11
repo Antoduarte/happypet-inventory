@@ -123,3 +123,142 @@ class InventoryMovementRoleFilterTests(APITestCase):
         self.assertEqual(response.status_code, 200)
         ids = {row["id"] for row in response.json()["results"]}
         self.assertEqual(ids, {self.movement_a.id})
+
+
+class ProductInitialStockMovementTests(APITestCase):
+    """
+    Tests that creating a Product with stock > 0 generates the matching
+    IN inventory movement, keeping the audit trail complete from day one.
+    """
+
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            email="admin@test.com", password="testpass", role="admin"
+        )
+        self.category = Category.objects.create(name="Test Cat", type="product")
+
+    def test_create_product_with_stock_creates_initial_in_movement(self):
+        self.client.force_authenticate(user=self.admin)
+        payload = {
+            "name": "Product With Stock",
+            "code": "PWS001",
+            "category_id": self.category.id,
+            "price": "10.00",
+            "stock": "15.0000",
+            "base_unit": "u",
+            "is_sale_product": True,
+            "is_service_supply": False,
+        }
+
+        response = self.client.post("/api/products/", payload, format="json")
+        self.assertEqual(response.status_code, 201)
+
+        product = Product.objects.get(code="PWS001")
+        self.assertEqual(product.stock, Decimal("15.0000"))
+
+        movements = InventoryMovement.objects.filter(product=product)
+        self.assertEqual(movements.count(), 1)
+
+        movement = movements.first()
+        self.assertEqual(movement.movement_type, MOVEMENT_IN)
+        self.assertEqual(movement.quantity, Decimal("15.0000"))
+        self.assertEqual(movement.previous_stock, Decimal("0"))
+        self.assertEqual(movement.new_stock, Decimal("15.0000"))
+        self.assertIn("Stock inicial", movement.notes)
+
+    def test_create_product_with_zero_stock_does_not_create_movement(self):
+        self.client.force_authenticate(user=self.admin)
+        payload = {
+            "name": "Product Without Stock",
+            "code": "PWS000",
+            "category_id": self.category.id,
+            "price": "10.00",
+            "stock": "0.0000",
+            "base_unit": "u",
+            "is_sale_product": True,
+            "is_service_supply": False,
+        }
+
+        response = self.client.post("/api/products/", payload, format="json")
+        self.assertEqual(response.status_code, 201)
+
+        product = Product.objects.get(code="PWS000")
+        self.assertEqual(InventoryMovement.objects.filter(product=product).count(), 0)
+
+
+class CreateInitialStockMovementCommandTests(APITestCase):
+    """Tests for the create_initial_stock_movement management command."""
+
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            email="admin@test.com", password="testpass", role="admin"
+        )
+        self.category = Category.objects.create(name="Test Cat", type="product")
+
+    def _create_product(self, code: str, stock: str) -> Product:
+        return Product.objects.create(
+            name=f"Product {code}",
+            code=code,
+            category=self.category,
+            stock=Decimal(stock),
+            base_unit="u",
+        )
+
+    def test_command_creates_missing_initial_movement(self):
+        product = self._create_product("GAP001", "5.0000")
+        # No movements yet: missing = 5
+
+        from django.core.management import call_command
+
+        call_command("create_initial_stock_movement", code="GAP001")
+
+        movement = InventoryMovement.objects.filter(product=product).first()
+        self.assertIsNotNone(movement)
+        self.assertEqual(movement.movement_type, MOVEMENT_IN)
+        self.assertEqual(movement.quantity, Decimal("5.0000"))
+        self.assertEqual(movement.previous_stock, Decimal("0"))
+        self.assertEqual(movement.new_stock, Decimal("5.0000"))
+
+    def test_command_does_nothing_when_already_reconciled(self):
+        product = self._create_product("GAP002", "0.0000")
+
+        from django.core.management import call_command
+
+        call_command("create_initial_stock_movement", code="GAP002")
+
+        self.assertEqual(InventoryMovement.objects.filter(product=product).count(), 0)
+
+    def test_dry_run_does_not_create_movement(self):
+        product = self._create_product("GAP003", "7.0000")
+
+        from django.core.management import call_command
+
+        call_command("create_initial_stock_movement", code="GAP003", dry_run=True)
+
+        self.assertEqual(InventoryMovement.objects.filter(product=product).count(), 0)
+
+    def test_command_fails_when_existing_movements_exceed_stock(self):
+        product = self._create_product("GAP004", "1.0000")
+        batch = MovementBatch.objects.create(movement_type=MOVEMENT_IN, notes="Manual entry")
+        InventoryMovement.objects.create(
+            batch=batch,
+            product=product,
+            movement_type=MOVEMENT_IN,
+            quantity=Decimal("5.0000"),
+            previous_stock=Decimal("0"),
+            new_stock=Decimal("5.0000"),
+        )
+        # product.stock = 1 but recorded movements say +5 => missing = -4
+
+        from django.core.management import CommandError
+        from django.core.management import call_command
+
+        with self.assertRaises(CommandError):
+            call_command("create_initial_stock_movement", code="GAP004")
+
+    def test_command_fails_without_code_or_name(self):
+        from django.core.management import CommandError
+        from django.core.management import call_command
+
+        with self.assertRaises(CommandError):
+            call_command("create_initial_stock_movement")

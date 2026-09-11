@@ -1,9 +1,13 @@
 from collections import OrderedDict
+from decimal import Decimal
+
 from rest_framework import serializers
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import transaction
 
 from .models import Product, Category, InventoryMovement, MovementBatch, ProductPresentation
 from .services import stock_movement_service, InsufficientStockError
+from .constants import MOVEMENT_IN
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -64,6 +68,45 @@ class ProductSerializer(serializers.ModelSerializer):
             "is_sale_product",
             "is_service_supply",
         ]
+
+    def create(self, validated_data: dict) -> Product:
+        """
+        Create the product and, when it has initial stock, record an IN
+        inventory movement so the audit trail is complete from day one.
+
+        The movement is created atomically with the product. The product's
+        ``stock`` field already holds the desired value, so the movement only
+        documents the initial load (previous_stock=0, new_stock=stock).
+        """
+        with transaction.atomic():
+            product = super().create(validated_data)
+
+            if product.stock > 0:
+                self._record_initial_stock_movement(product)
+
+            return product
+
+    def _record_initial_stock_movement(self, product: Product) -> InventoryMovement:
+        """Create the matching IN movement/batch for a newly created product."""
+        request = self.context.get("request")
+        created_by = getattr(request, "user", None) if request else None
+
+        batch = MovementBatch.objects.create(
+            movement_type=MOVEMENT_IN,
+            notes=f"Stock inicial - [{product.code or 'sin código'}] {product.name}",
+            created_by=created_by,
+        )
+
+        return InventoryMovement.objects.create(
+            batch=batch,
+            product=product,
+            presentation=None,
+            movement_type=MOVEMENT_IN,
+            quantity=product.stock,
+            previous_stock=Decimal("0"),
+            new_stock=product.stock,
+            notes="Stock inicial",
+        )
 
 
 # ---------------------------------------------------------------------------

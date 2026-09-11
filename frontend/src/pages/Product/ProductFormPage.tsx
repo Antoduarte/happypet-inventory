@@ -384,7 +384,7 @@ export const ProductFormPage: React.FC = () => {
                                 {/* ─ Precio y Stock ─ */}
                                 <FormSection
                                     title="Precio y stock"
-                                    description="Valor de venta e inventario inicial"
+                                    description="Valor de venta e inventario"
                                     icon={DollarSign}
                                     iconBg="bg-emerald-100"
                                     iconColor="text-emerald-600"
@@ -409,7 +409,7 @@ export const ProductFormPage: React.FC = () => {
                                         />
                                         <div className="flex flex-col gap-1.5">
                                             <Input
-                                                label="Stock inicial"
+                                                label="Stock"
                                                 type="number"
                                                 step="0.0001"
                                                 {...register('stock')}
