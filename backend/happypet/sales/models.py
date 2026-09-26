@@ -61,6 +61,7 @@ class Sale(models.Model):
         help_text='Desglose de montos por método de pago cuando el pago es mixto. Ej: [{"method": "cash", "amount": "50.00"}, ...]',
     )
     sale_date = models.DateTimeField(auto_now_add=True)
+    paid_at = models.DateTimeField(blank=True, null=True, db_index=True)
 
     def __str__(self):
         return f"Sale #{self.pk} — {self.sale_date:%Y-%m-%d}"

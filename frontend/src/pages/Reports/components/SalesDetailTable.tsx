@@ -6,7 +6,7 @@ import { usePagination } from '../../../hooks/usePagination';
 import { useSalesDetail } from '../../../hooks/useSalesDetail';
 import { formatCurrency } from '../../../utils/format';
 import { getPaymentTypeLabel, formatPaymentSplit } from '../../../utils/payment';
-import type { SaleDetailItem, SaleDetailRow } from '../../../interfaces/report';
+import type { SaleDetailItem, SaleDetailRow, SalesDateBasis } from '../../../interfaces/report';
 
 const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);
@@ -28,6 +28,7 @@ interface SalesDetailTableProps {
     start: string;
     end: string;
     sellerId: number | null;
+    dateBasis?: SalesDateBasis;
     cashSessionId?: number;
 }
 
@@ -35,6 +36,7 @@ export const SalesDetailTable: React.FC<SalesDetailTableProps> = ({
     start,
     end,
     sellerId,
+    dateBasis = 'sale',
     cashSessionId,
 }) => {
     const { sales, totalCount, isLoading, error, fetchDetail } = useSalesDetail();
@@ -46,7 +48,7 @@ export const SalesDetailTable: React.FC<SalesDetailTableProps> = ({
     // Report filter changes reset the table to the first page.
     useEffect(() => {
         setPage(1);
-    }, [start, end, sellerId, cashSessionId, setPage]);
+    }, [start, end, sellerId, dateBasis, cashSessionId, setPage]);
 
     const load = useCallback(() => {
         fetchDetail(
@@ -61,12 +63,23 @@ export const SalesDetailTable: React.FC<SalesDetailTableProps> = ({
                       start,
                       end,
                       cashier_id: sellerId ?? undefined,
+                      date_basis: dateBasis,
                       page: currentPage,
                       page_size: itemsPerPage,
                       search: search || undefined,
                   },
         );
-    }, [fetchDetail, start, end, sellerId, cashSessionId, currentPage, itemsPerPage, search]);
+    }, [
+        fetchDetail,
+        start,
+        end,
+        sellerId,
+        dateBasis,
+        cashSessionId,
+        currentPage,
+        itemsPerPage,
+        search,
+    ]);
 
     useEffect(() => {
         load();
@@ -106,7 +119,7 @@ export const SalesDetailTable: React.FC<SalesDetailTableProps> = ({
                         <thead className="bg-slate-50 text-slate-600 font-medium border-b border-slate-200">
                             <tr>
                                 <th className="px-4 py-4 w-10"></th>
-                                <th className="px-4 py-4">Fecha</th>
+                                <th className="px-4 py-4">Fechas</th>
                                 <th className="px-4 py-4">Ticket</th>
                                 <th className="px-4 py-4">Vendedor</th>
                                 <th className="px-4 py-4">Ítems</th>
@@ -196,11 +209,16 @@ const SaleRow: React.FC<SaleRowProps> = ({ sale, isExpanded, onToggle }) => {
 
                 {/* Date */}
                 <td className="px-4 py-3.5">
-                    <div className="flex flex-col">
+                    <div className="flex flex-col gap-1">
                         <span className="font-medium text-slate-800">
-                            {formatDate(sale.sale_date)}
+                            Venta: {formatDate(sale.sale_date)}
                         </span>
                         <span className="text-xs text-slate-400">{formatTime(sale.sale_date)}</span>
+                        {sale.paid_at && (
+                            <span className="text-xs text-emerald-600">
+                                Cobro: {formatDate(sale.paid_at)} {formatTime(sale.paid_at)}
+                            </span>
+                        )}
                     </div>
                 </td>
 

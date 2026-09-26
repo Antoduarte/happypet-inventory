@@ -12,6 +12,7 @@ import { useCashMovementFilters } from '../../hooks/cash/useCashMovementFilters'
 import { usePagination } from '../../hooks/usePagination';
 import { cashMovementService } from '../../services/cash';
 import { exportCashMovementsPdf } from '../../utils/exportPdf';
+import { exportCashMovementsExcel } from '../../utils/exportExcel';
 import type { ReportGranularity, ReportPreset } from '../../interfaces/report';
 import type { MovementType } from '../../interfaces/cash';
 
@@ -55,6 +56,31 @@ export const CashReportPage: React.FC = () => {
         try {
             const movements = await cashMovementService.getAllMovements(movementsParams);
             exportCashMovementsPdf({
+                movements,
+                start: dateRange.start,
+                end: dateRange.end,
+                totals: report
+                    ? {
+                          total_income: report.total_income,
+                          total_expense: report.total_expense,
+                          balance: report.balance,
+                      }
+                    : null,
+                typeFilter: type || undefined,
+                cashierId,
+            });
+        } catch {
+            // Silent: the movements table already surfaces fetch errors on screen.
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
+    const handleExportMovementsExcel = async () => {
+        setIsExporting(true);
+        try {
+            const movements = await cashMovementService.getAllMovements(movementsParams);
+            exportCashMovementsExcel({
                 movements,
                 start: dateRange.start,
                 end: dateRange.end,
@@ -155,15 +181,26 @@ export const CashReportPage: React.FC = () => {
                     <Card
                         title="Movimientos de Caja"
                         action={
-                            <Button
-                                variant="secondary"
-                                size="sm"
-                                onClick={handleExportMovements}
-                                isLoading={isExporting}
-                            >
-                                <Download size={16} className="mr-1.5" />
-                                {isExporting ? 'Exportando…' : 'Exportar PDF'}
-                            </Button>
+                            <div className="flex gap-2">
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={handleExportMovements}
+                                    isLoading={isExporting}
+                                >
+                                    <Download size={16} className="mr-1.5" />
+                                    {isExporting ? 'Exportando…' : 'Exportar PDF'}
+                                </Button>
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={handleExportMovementsExcel}
+                                    isLoading={isExporting}
+                                >
+                                    <Download size={16} className="mr-1.5" />
+                                    {isExporting ? 'Exportando…' : 'Exportar Excel'}
+                                </Button>
+                            </div>
                         }
                     >
                         <CashMovementsTable

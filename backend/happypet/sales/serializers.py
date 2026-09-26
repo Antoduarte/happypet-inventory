@@ -410,6 +410,7 @@ class SaleSerializer(serializers.ModelSerializer):
             "payment_type",
             "payment_split",
             "sale_date",
+            "paid_at",
             "items",
         ]
         read_only_fields = fields

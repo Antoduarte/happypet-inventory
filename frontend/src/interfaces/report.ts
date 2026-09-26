@@ -1,4 +1,5 @@
 export type ReportGranularity = 'day' | 'week' | 'month';
+export type SalesDateBasis = 'sale' | 'payment';
 
 export type ReportPreset = 'today' | 'yesterday' | 'week' | 'month' | 'custom';
 
@@ -7,6 +8,7 @@ export interface SalesReportParams {
     end?: string; // YYYY-MM-DD
     granularity?: ReportGranularity;
     cashier_id?: number;
+    date_basis?: SalesDateBasis;
 }
 
 export interface ReportSummary {
@@ -61,6 +63,7 @@ export interface SaleDetailItem {
 export interface SaleDetailRow {
     id: number;
     sale_date: string;
+    paid_at: string | null;
     payment_type: string;
     payment_split?: { method: string; amount: number }[];
     seller_name: string;
@@ -75,6 +78,7 @@ export interface SalesDetailParams {
     start?: string;
     end?: string;
     cashier_id?: number;
+    date_basis?: SalesDateBasis;
     cash_session_id?: number;
     page?: number;
     page_size?: number;
@@ -84,6 +88,7 @@ export interface SalesDetailParams {
 
 export interface SalesReport {
     granularity: ReportGranularity;
+    date_basis: SalesDateBasis;
     start: string;
     end: string;
     summary: ReportSummary;

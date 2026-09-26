@@ -91,6 +91,28 @@ class SalesReportViewTests(APITestCase):
         self.assertEqual(len(data["by_period"]), 2)
         self.assertTrue(len(data["by_cashier"]) >= 1)
 
+    def test_report_can_filter_completed_sales_by_payment_date(self):
+        paid_today = self._make_sale("50.00", self.session_a, days_ago=15)
+        Sale.objects.filter(pk=paid_today.pk).update(paid_at=timezone.now())
+
+        sold_today = self._make_sale("75.00", self.session_a)
+        Sale.objects.filter(pk=sold_today.pk).update(
+            paid_at=timezone.now() - timedelta(days=15)
+        )
+
+        self.client.force_authenticate(self.admin)
+        today = date.today().isoformat()
+        res = self.client.get(
+            REPORT_URL,
+            {"start": today, "end": today, "date_basis": "payment"},
+        )
+
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertEqual(data["date_basis"], "payment")
+        self.assertEqual(data["summary"]["total_income"], "50.00")
+        self.assertEqual(data["summary"]["sales_count"], 1)
+
     def test_only_completed_sales_counted(self):
         self._make_sale("100.00", self.session_a, status=SAILE_STATUS_COMPLETED)
         self._make_sale("77.00", self.session_a, status=SAILE_STATUS_CANCELLED)

@@ -44,7 +44,15 @@ class SaleViewSet(viewsets.ModelViewSet):
 
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ["id", "payment_type", "status"]
-    ordering_fields = ["id", "sale_date", "total_price", "quantity", "payment_type", "status"]
+    ordering_fields = [
+        "id",
+        "sale_date",
+        "paid_at",
+        "total_price",
+        "quantity",
+        "payment_type",
+        "status",
+    ]
     ordering = ["-sale_date"]
 
     def get_queryset(self):
@@ -57,11 +65,23 @@ class SaleViewSet(viewsets.ModelViewSet):
         if self.action == "list":
             role = getattr(user, "role", None)
             if role == "cashier":
-                return self.queryset.filter(cash_session__user=user)
+                queryset = self.queryset.filter(cash_session__user=user)
+            else:
+                queryset = self.queryset
             if role in ("admin", "manager"):
                 cashier_id = self.request.query_params.get("cashier_id")
                 if cashier_id:
-                    return self.queryset.filter(cash_session__user_id=cashier_id)
+                    queryset = queryset.filter(cash_session__user_id=cashier_id)
+
+            date_basis = self.request.query_params.get("date_basis", "sale")
+            date_field = "paid_at" if date_basis == "payment" else "sale_date"
+            date_from = self.request.query_params.get("date_from")
+            date_to = self.request.query_params.get("date_to")
+            if date_from:
+                queryset = queryset.filter(**{f"{date_field}__date__gte": date_from})
+            if date_to:
+                queryset = queryset.filter(**{f"{date_field}__date__lte": date_to})
+            return queryset
         return self.queryset
 
     def get_permissions(self):

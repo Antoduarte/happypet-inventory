@@ -1,6 +1,7 @@
 from decimal import Decimal
 from django.test import TestCase
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from rest_framework.test import APITestCase
 from .services import PriceCalculator
 from .models import Sale, SaleItem
@@ -420,6 +421,18 @@ class CreditCompletionSessionTests(TestCase):
         result.refresh_from_db()
         self.assertEqual(result.cash_session, self.session)
         self.assertEqual(CashMovement.objects.count(), 0)
+
+    def test_completing_credit_records_payment_timestamp(self):
+        sale = self._create_credit_sale()
+        sale_date = sale.sale_date
+
+        result = self.service.transition(
+            sale, SAILE_STATUS_COMPLETED, self.user, new_payment_type=PAYMENT_TRANSFER
+        )
+        result.refresh_from_db()
+
+        self.assertIsNotNone(result.paid_at)
+        self.assertGreaterEqual(result.paid_at, sale_date)
 
     def test_complete_credit_as_card_moves_out_of_old_closed_session(self):
         old_register = CashRegister.objects.create(name="Old Register")

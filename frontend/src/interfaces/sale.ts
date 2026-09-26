@@ -91,6 +91,8 @@ export interface Sale {
     payment_split: PaymentSplit[];
     /** ISO 8601 datetime string (auto-set on creation). */
     sale_date: string;
+    /** ISO 8601 datetime string set when the sale is completed, if paid. */
+    paid_at: string | null;
     items: SaleItem[];
 }
 
@@ -156,6 +158,10 @@ export interface SaleQueryParams {
     payment_type?: PaymentType;
     /** Filter by cashier (admin/manager only). */
     cashier_id?: number;
+    /** Date field used by optional date range filters. */
+    date_basis?: 'sale' | 'payment';
+    date_from?: string;
+    date_to?: string;
 }
 
 export type PaymentOptionValue = PaymentMethod | 'credit';

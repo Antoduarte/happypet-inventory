@@ -110,25 +110,28 @@ def _resolve_report_filters(request):
     """
     Shared filter contract for sales reports.
 
-    Returns (start, end, cashier_id, is_cashier). Cashiers are locked to the
-    current day and to their own cash sessions regardless of the params sent.
+    Returns (start, end, cashier_id, is_cashier, date_basis). Cashiers are
+    locked to the current day and to their own cash sessions regardless of the
+    params sent.
     """
     user = request.user
     today = date.today()
     is_cashier = getattr(user, 'is_cashier', False)
+    date_basis = request.query_params.get('date_basis', 'sale')
+    if date_basis not in ('sale', 'payment'):
+        date_basis = 'sale'
 
     if is_cashier:
-        return today, today, None, True
+        return today, today, None, True, date_basis
 
     start = _parse_date(request.query_params.get('start'), today)
     end = _parse_date(request.query_params.get('end'), today)
     cashier_id = request.query_params.get('cashier_id') or None
-
     # Keep the range coherent if the client sends end < start.
     if end < start:
         start, end = end, start
 
-    return start, end, cashier_id, False
+    return start, end, cashier_id, False, date_basis
 
 
 class SalesReportView(APIView):
@@ -144,7 +147,7 @@ class SalesReportView(APIView):
 
     def get(self, request):
         user = request.user
-        start, end, cashier_id, is_cashier = _resolve_report_filters(request)
+        start, end, cashier_id, is_cashier, date_basis = _resolve_report_filters(request)
 
         if is_cashier:
             granularity = 'day'
@@ -153,10 +156,13 @@ class SalesReportView(APIView):
             if granularity not in TRUNC_FUNCS:
                 granularity = 'day'
 
+        date_field = 'paid_at' if date_basis == 'payment' else 'sale_date'
         qs = Sale.objects.filter(
             status=SAILE_STATUS_COMPLETED,
-            sale_date__date__gte=start,
-            sale_date__date__lte=end,
+            **{
+                f'{date_field}__date__gte': start,
+                f'{date_field}__date__lte': end,
+            },
         )
 
         if is_cashier:
@@ -193,7 +199,7 @@ class SalesReportView(APIView):
                 'total': _format_money(row['total'] or 0),
                 'count': row['count'],
             }
-            for row in qs.annotate(period=trunc('sale_date'))
+            for row in qs.annotate(period=trunc(date_field))
             .values('period')
             .annotate(total=Sum('total_price'), count=Count('id'))
             .order_by('period')
@@ -232,7 +238,7 @@ class SalesReportView(APIView):
             payment_type=PAYMENT_CREDIT,
             sale_date__date__gte=start,
             sale_date__date__lte=end,
-        )
+        ) if date_basis == 'sale' else Sale.objects.none()
         if is_cashier:
             pending_credit_qs = pending_credit_qs.filter(cash_session__user=user)
         elif cashier_id:
@@ -260,6 +266,7 @@ class SalesReportView(APIView):
 
         return Response({
             'granularity': granularity,
+            'date_basis': date_basis,
             'start': start.isoformat(),
             'end': end.isoformat(),
             'summary': {
@@ -343,13 +350,17 @@ class SalesDetailReportView(generics.ListAPIView):
                 qs = qs.filter(cash_session__user=self.request.user)
             return qs
 
-        start, end, cashier_id, is_cashier = _resolve_report_filters(self.request)
+        start, end, cashier_id, is_cashier, date_basis = _resolve_report_filters(self.request)
+
+        date_field = 'paid_at' if date_basis == 'payment' else 'sale_date'
 
         qs = (
             Sale.objects.filter(
                 status=SAILE_STATUS_COMPLETED,
-                sale_date__date__gte=start,
-                sale_date__date__lte=end,
+                **{
+                    f'{date_field}__date__gte': start,
+                    f'{date_field}__date__lte': end,
+                },
             )
             .select_related('cash_session__user')
             .prefetch_related('items__product', 'items__service', 'items__presentation')

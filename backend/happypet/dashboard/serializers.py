@@ -53,6 +53,7 @@ class SaleDetailRowSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'sale_date',
+            'paid_at',
             'payment_type',
             'payment_split',
             'seller_name',

@@ -85,11 +85,17 @@ const savePdf = (doc: jsPDF, filename: string): void => {
 // Sales detail report
 // ---------------------------------------------------------------------------
 
-export const exportSalesDetailPdf = (rows: SaleDetailRow[], start: string, end: string): void => {
+export const exportSalesDetailPdf = (
+    rows: SaleDetailRow[],
+    start: string,
+    end: string,
+    dateBasis: 'sale' | 'payment' = 'sale',
+): void => {
     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
     const generatedAt = new Date().toLocaleString('es-NI');
     const startY = addHeader(doc, 'Detalle de Ventas', [
         `Desde ${formatDate(start)}   Hasta ${formatDate(end)}   |   Generado: ${generatedAt}`,
+        `Criterio de fecha: ${dateBasis === 'payment' ? 'Fecha de cobro' : 'Fecha de venta'}`,
     ]);
 
     const body: (string | number)[][] = [];
@@ -103,6 +109,8 @@ export const exportSalesDetailPdf = (rows: SaleDetailRow[], start: string, end: 
                 `#${sale.id}`,
                 formatDate(sale.sale_date),
                 formatTime(sale.sale_date),
+                sale.paid_at ? formatDate(sale.paid_at) : '-',
+                sale.paid_at ? formatTime(sale.paid_at) : '-',
                 sale.seller_name,
                 getPaymentTypeLabel(sale.payment_type),
                 paymentSplitText,
@@ -129,6 +137,8 @@ export const exportSalesDetailPdf = (rows: SaleDetailRow[], start: string, end: 
                 'Ticket',
                 'Fecha',
                 'Hora',
+                'Fecha cobro',
+                'Hora cobro',
                 'Vendedor',
                 'Pago',
                 'Desglose Pago',
@@ -144,14 +154,14 @@ export const exportSalesDetailPdf = (rows: SaleDetailRow[], start: string, end: 
         ],
         body,
         columnStyles: {
-            4: { cellWidth: 18 },
-            5: { cellWidth: 30 },
-            8: { halign: 'right' },
-            9: { halign: 'right' },
-            10: { halign: 'right', cellWidth: 18 },
-            11: { halign: 'right' },
-            12: { halign: 'right', cellWidth: 18 },
-            13: { halign: 'right' },
+            6: { cellWidth: 18 },
+            7: { cellWidth: 30 },
+            10: { halign: 'right' },
+            11: { halign: 'right', cellWidth: 18 },
+            12: { halign: 'right' },
+            13: { halign: 'right', cellWidth: 18 },
+            14: { halign: 'right' },
+            15: { halign: 'right', cellWidth: 18 },
         },
     });
 

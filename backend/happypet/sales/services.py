@@ -15,6 +15,7 @@ from decimal import Decimal
 
 from django.db import transaction
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 
 from happypet.products.constants import (
     SALE_ITEM_PRODUCT,
@@ -315,6 +316,8 @@ class SaleStatusService:
         # ── Ejecutar side effects ────────────────────────────────────────────
         update_fields = ["status", "payment_type"]
         if target_status == SAILE_STATUS_COMPLETED:
+            locked_sale.paid_at = timezone.now()
+            update_fields.append("paid_at")
             if was_credit:
                 # Re-link the sale to the completing user's open session so the
                 # collection shows up on today's closure breakdown regardless of

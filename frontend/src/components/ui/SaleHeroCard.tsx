@@ -37,6 +37,21 @@ export const SaleHeroCard: React.FC<SaleHeroCardProps> = ({ sale }) => {
                             minute: '2-digit',
                         })}
                     </div>
+                    {sale.paid_at && (
+                        <>
+                            <span className="text-slate-300">•</span>
+                            <div className="text-sm text-emerald-600">
+                                Cobrado:{' '}
+                                {new Date(sale.paid_at).toLocaleString('es-AR', {
+                                    day: '2-digit',
+                                    month: '2-digit',
+                                    year: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                })}
+                            </div>
+                        </>
+                    )}
                     <span className="text-slate-300">•</span>
                     <div className="flex items-center gap-1.5 text-sm text-slate-600">
                         {paymentIcon()}
