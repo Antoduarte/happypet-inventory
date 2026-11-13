@@ -1,6 +1,7 @@
 import React from 'react';
 import { Calendar, CalendarDays, CalendarRange, Clock } from 'lucide-react';
 import { Card } from './Card';
+import { DateInput } from './DateInput';
 import { TogglePills, type TogglePillOption } from './TogglePills';
 import type { ReportGranularity, ReportPreset } from '../../interfaces/report';
 
@@ -34,10 +35,6 @@ interface PeriodFilterBarProps {
     hideGranularity?: boolean;
 }
 
-const dateInputClass =
-    'block w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 ' +
-    'focus:border-brand focus:ring-2 focus:ring-brand/30 focus:outline-none';
-
 export const PeriodFilterBar: React.FC<PeriodFilterBarProps> = ({
     preset,
     onPresetChange,
@@ -67,26 +64,20 @@ export const PeriodFilterBar: React.FC<PeriodFilterBarProps> = ({
 
                 {isCustom && (
                     <div className="flex flex-wrap items-end gap-4 border-t border-slate-100 pt-4">
-                        <div className="flex flex-col gap-1.5">
-                            <label className="text-xs font-medium text-slate-500">Desde</label>
-                            <input
-                                type="date"
-                                value={customStart}
-                                max={customEnd || undefined}
-                                onChange={(e) => onCustomStartChange(e.target.value)}
-                                className={dateInputClass}
-                            />
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                            <label className="text-xs font-medium text-slate-500">Hasta</label>
-                            <input
-                                type="date"
-                                value={customEnd}
-                                min={customStart || undefined}
-                                onChange={(e) => onCustomEndChange(e.target.value)}
-                                className={dateInputClass}
-                            />
-                        </div>
+                        <DateInput
+                            compact
+                            label="Desde"
+                            value={customStart}
+                            maxDate={customEnd || undefined}
+                            onChange={onCustomStartChange}
+                        />
+                        <DateInput
+                            compact
+                            label="Hasta"
+                            value={customEnd}
+                            minDate={customStart || undefined}
+                            onChange={onCustomEndChange}
+                        />
                         {!hideGranularity && (
                             <TogglePills<ReportGranularity>
                                 label="Agrupar por"

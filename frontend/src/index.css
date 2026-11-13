@@ -1,5 +1,8 @@
 @layer tailwind-base, primereact, tailwind-utilities;
 
+@import url('primereact/resources/themes/lara-light-blue/theme.css') layer(primereact);
+@import url('primereact/resources/primereact.min.css') layer(primereact);
+
 @layer tailwind-base {
   @tailwind base;
 }
@@ -26,3 +29,91 @@ input[type="number"] {
   border-width: 1px;
   border-style: solid;
 } */
+
+/* Date picker: match site design (brand color, Tailwind-like inputs) */
+.app-datepicker.p-calendar-w-btn .p-datepicker-trigger {
+    background: #fff;
+    color: #680a7d;
+    border: 1px solid #cbd5e1;
+    border-left: 0;
+    border-radius: 0 0.5rem 0.5rem 0;
+    box-shadow: none;
+}
+.app-datepicker.p-calendar-w-btn .p-datepicker-trigger:hover {
+    background: #fbf3fd;
+    color: #560a67;
+}
+.app-datepicker.p-calendar-w-btn .p-inputtext {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.app-datepicker-panel {
+    border: 1px solid #e2e8f0;
+    border-radius: 0.75rem;
+    box-shadow: 0 10px 25px -5px rgba(46, 8, 56, 0.15);
+    font-size: 0.875rem;
+}
+.app-datepicker-panel .p-datepicker-header {
+    border-bottom: 1px solid #f1f5f9;
+}
+.app-datepicker-panel .p-datepicker-title {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    text-transform: capitalize;
+}
+.app-datepicker-panel .p-datepicker-title .p-datepicker-month,
+.app-datepicker-panel .p-datepicker-title .p-datepicker-year {
+    margin-right: 0;
+    color: #470c54;
+    font-weight: 600;
+}
+.app-datepicker-panel .p-datepicker-title .p-datepicker-month:enabled:hover,
+.app-datepicker-panel .p-datepicker-title .p-datepicker-year:enabled:hover {
+    color: #680a7d;
+}
+.app-datepicker-panel .p-datepicker-prev,
+.app-datepicker-panel .p-datepicker-next {
+    color: #680a7d;
+}
+.app-datepicker-panel .p-datepicker-prev:enabled:hover,
+.app-datepicker-panel .p-datepicker-next:enabled:hover {
+    background: #f6e3fa;
+    color: #560a67;
+}
+.app-datepicker-panel table th {
+    color: #680a7d;
+}
+.app-datepicker-panel table td > span:not(.p-highlight):not(.p-disabled):hover {
+    background: #f6e3fa;
+}
+.app-datepicker-panel table td > span.p-highlight {
+    background: #680a7d;
+    color: #fff;
+}
+.app-datepicker-panel table td.p-datepicker-today > span:not(.p-highlight) {
+    background: #f6e3fa;
+    color: #680a7d;
+}
+.app-datepicker-panel table td > span:focus {
+    box-shadow: 0 0 0 0.15rem #df9fe6;
+}
+.app-datepicker-panel .p-datepicker-buttonbar {
+    border-top: 1px solid #f1f5f9;
+}
+.app-datepicker-panel .p-datepicker-buttonbar .p-button {
+    background: transparent;
+    color: #680a7d;
+    border: 0;
+    box-shadow: none;
+}
+.app-datepicker-panel .p-datepicker-buttonbar .p-button:hover {
+    background: #f6e3fa;
+}
+.app-datepicker-panel .p-monthpicker-month.p-highlight,
+.app-datepicker-panel .p-yearpicker-year.p-highlight {
+    background: #f6e3fa;
+    color: #680a7d;
+}
