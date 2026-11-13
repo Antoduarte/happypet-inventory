@@ -6,6 +6,8 @@ import { Save, X, Trash2, TrendingUp, TrendingDown, DollarSign, Tag } from 'luci
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
+import { DateInput } from '@/components/ui/DateInput';
+import { toISODate } from '@/utils/dateRange';
 import { FormSection } from '@/components/ui/FormSection';
 import { TogglePills } from '@/components/ui/TogglePills';
 import { QuickActionsSidebar } from '@/components/ui/QuickActionsSidebar';
@@ -46,7 +48,7 @@ const defaultValues: GeneralMovementFormData = {
     name: '',
     description: '',
     amount: '',
-    date: new Date().toISOString().split('T')[0],
+    date: toISODate(new Date()),
     payment_method: 'cash',
 };
 
@@ -245,12 +247,19 @@ export const GeneralMovementFormPage: React.FC = () => {
                                     required
                                 />
 
-                                <Input
-                                    label="Fecha"
-                                    type="date"
-                                    {...register('date')}
-                                    error={errors.date?.message}
-                                    required
+                                <Controller
+                                    name="date"
+                                    control={control}
+                                    render={({ field }) => (
+                                        <DateInput
+                                            label="Fecha"
+                                            required
+                                            value={field.value}
+                                            onChange={field.onChange}
+                                            onBlur={field.onBlur}
+                                            error={errors.date?.message}
+                                        />
+                                    )}
                                 />
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-sm font-medium text-slate-700">

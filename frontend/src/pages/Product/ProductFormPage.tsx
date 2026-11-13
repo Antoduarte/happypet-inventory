@@ -19,6 +19,7 @@ import { QuickActionsSidebar } from '@/components/ui/QuickActionsSidebar';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
+import { DateInput } from '../../components/ui/DateInput';
 import { FormSection } from '@/components/ui/FormSection';
 import { useProduct } from '../../hooks/useProduct';
 import { useManagerGate } from '../../hooks/useManagerGate';
@@ -284,24 +285,20 @@ export const ProductFormPage: React.FC = () => {
                                         />
                                     </div>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <div className="flex flex-col gap-1.5">
-                                            <label className="text-sm font-medium text-slate-700">
-                                                Fecha de vencimiento{' '}
-                                                <span className="text-slate-400 font-normal">
-                                                    (opcional)
-                                                </span>
-                                            </label>
-                                            <input
-                                                type="date"
-                                                {...register('expiry_date')}
-                                                className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:border-brand-light focus:ring-1 focus:ring-brand-light/10 transition-all outline-none hover:border-slate-400"
-                                            />
-                                            {errors.expiry_date?.message && (
-                                                <p className="text-xs text-red-500">
-                                                    {errors.expiry_date.message}
-                                                </p>
+                                        <Controller
+                                            name="expiry_date"
+                                            control={control}
+                                            render={({ field }) => (
+                                                <DateInput
+                                                    label="Fecha de vencimiento"
+                                                    optionalHint
+                                                    value={field.value}
+                                                    onChange={field.onChange}
+                                                    onBlur={field.onBlur}
+                                                    error={errors.expiry_date?.message}
+                                                />
                                             )}
-                                        </div>
+                                        />
                                     </div>
 
                                     {/* Descripción */}
