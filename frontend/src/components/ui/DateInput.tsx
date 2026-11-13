@@ -51,9 +51,11 @@ export const DateInput: React.FC<DateInputProps> = ({
     const inputId = id || defaultId;
 
     const inputClass = compact
-        ? 'w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-brand focus:outline-none'
-        : `w-full px-4 py-2 bg-white border rounded-lg text-sm outline-none ${
-              error ? 'border-red-300' : 'border-slate-300 hover:border-slate-400'
+        ? 'w-full rounded-lg border border-slate-300 hover:border-slate-400 bg-white px-3 py-2 text-sm text-slate-700 shadow-none transition-all outline-none focus:border-brand-light focus:ring-1 focus:ring-brand-light/10'
+        : `w-full px-4 py-2 bg-white border rounded-lg text-sm shadow-none transition-all outline-none ${
+              error
+                  ? 'border-red-300 focus:border-red-500 focus:ring-1 focus:ring-red-500/10'
+                  : 'border-slate-300 hover:border-slate-400 focus:border-brand-light focus:ring-1 focus:ring-brand-light/10'
           }`;
 
     return (
@@ -92,7 +94,8 @@ export const DateInput: React.FC<DateInputProps> = ({
                 showButtonBar
                 readOnlyInput={false}
                 inputClassName={inputClass}
-                className="w-full"
+                className="app-datepicker w-full"
+                panelClassName="app-datepicker-panel"
                 appendTo={typeof document !== 'undefined' ? document.body : undefined}
             />
             {error && <p className="text-xs mt-0.5 text-red-500">{error}</p>}
